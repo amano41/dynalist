@@ -220,7 +220,12 @@ def export_document(token, file_id, file=sys.stdout):
     opml_head = opml_head.format(json_data['title'])
 
     file.write(opml_head)
-    _write_node('root', 2, item_map, file)
+
+    root_node = item_map['root']
+    if 'children' in root_node:
+        for child_id in root_node['children']:
+            _write_node(child_id, 2, item_map, file)
+
     file.write(opml_tail)
 
 
