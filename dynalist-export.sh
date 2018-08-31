@@ -3,7 +3,7 @@
 set -eu
 
 
-CMD="$(dirname $0)/dynalist.py"
+CMD="$(dirname $(realpath $0))/dynalist.py"
 
 
 function usage() {
