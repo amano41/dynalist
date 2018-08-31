@@ -144,14 +144,29 @@ def _find_files(root_file_id, item_map):
         yield from _find_files_recursive(child_id, '')
 
 
+def _escape(text):
+
+    if not hasattr(_escape, 'table'):
+        table = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '\"': '&quot;',
+            '\'': '&apos;'
+        }
+        _escape.table = str.maketrans(table)
+
+    return text.translate(_escape.table)
+
+
 def _write_node(node_id, level, item_map, file=sys.stdout):
 
     node = item_map[node_id]
 
-    attr = ' text="{}"'.format(node['content'])
+    attr = ' text="{}"'.format(_escape(node['content']))
 
     if 'note' in node and node['note'] != '':
-        attr = attr + ' note="{}"'.format(node['note'])
+        attr = attr + ' note="{}"'.format(_escape(node['note']))
 
     if 'checked' in node and node['checked'] == 'true':
         attr = attr + ' checked="true"'
