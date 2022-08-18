@@ -1,69 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import os
 import sys
-from collections import OrderedDict
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
-
-
-def _post(method, json_data):
-
-    url = "https://dynalist.io/api/v1" + method
-
-    data = json.dumps(json_data).encode("utf-8")
-
-    headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-
-    request = Request(url, data=data, headers=headers)
-
-    try:
-        with urlopen(request) as response:
-            body = response.read().decode("utf-8")
-            result = json.loads(body, object_pairs_hook=OrderedDict)
-    except HTTPError as e:
-        abort("HTTP {} {}".format(e.code, e.reason))
-    except URLError as e:
-        abort(str(e.reason))
-
-    if result["_code"].lower() != "ok":
-        abort(result["_msg"])
-
-    return result
-
-
-def file_list(token):
-
-    method = "/file/list"
-
-    data = {"token": token}
-
-    return _post(method, data)
-
-
-def file_edit(token, changes):
-
-    method = "/file/edit"
-
-    data = {"token": token, "changes": changes}
-
-    return _post(method, data)
-
-
-def file_edit_move(token, type, file_id, parent_id, index=-1):
-
-    change = {"action": "move", "type": type, "file_id": file_id, "parent_id": parent_id, "index": index}
-
-    return file_edit(token, [change])
-
-
-def file_edit_edit(token, type, file_id, title):
-
-    change = {"action": "edit", "type": type, "file_id": file_id, "title": title}
-
-    return file_edit(token, [change])
 
 
 def doc_read(token, file_id):
