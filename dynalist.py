@@ -172,3 +172,51 @@ class Dynalist:
         changes = [{"action": "delete", "node_id": target_node_id}]
 
         return self.edit_doc(document_id, changes)
+
+    def add_to_inbox(
+        self,
+        index: int,
+        content: str,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
+
+        method = "inbox/add"
+        json_data = {
+            "token": self.token,
+            "index": index,
+            "content": content,
+            "checked": checked,
+            "checkbox": checkbox,
+            "heading": heading,
+            "color": color,
+        }
+
+        if note is not None:
+            json_data["note"] = note
+
+        return self._post(method, json_data)
+
+    def upload_file(self, file_name: str, content_type: str, base64_data: str) -> dict:
+
+        method = "upload"
+        json_data = {"token": self.token, "filename": file_name, "content_type": content_type, "data": base64_data}
+
+        return self._post(method, json_data)
+
+    def get_pref(self, key: Literal["inbox_location", "inbox_move_position"]) -> dict:
+
+        method = "pref/get"
+        json_data = {"token": self.token, "key": key}
+
+        return self._post(method, json_data)
+
+    def set_pref(self, key: Literal["inbox_location", "inbox_move_position"], value: str) -> dict:
+
+        method = "pref/set"
+        json_data = {"token": self.token, "key": key, "value": value}
+
+        return self._post(method, json_data)
