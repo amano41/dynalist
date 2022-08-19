@@ -84,3 +84,91 @@ class Dynalist:
         json_data = {"token": self.token, "file_id": document_id}
 
         return self._post(method, json_data)
+
+    def check_for_updates(self, document_ids: list[str]) -> dict:
+
+        method = "doc/check_for_updates"
+        json_data = {"token": self.token, "file_ids": document_ids}
+
+        return self._post(method, json_data)
+
+    def edit_doc(self, document_id: str, changes: list[dict]) -> dict:
+
+        method = "doc/edit"
+        json_data = {"token": self.token, "file_id": document_id, "changes": changes}
+
+        return self._post(method, json_data)
+
+    def insert_node(
+        self,
+        document_id: str,
+        parent_node_id: str,
+        index: int,
+        content: str,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
+
+        changes = [
+            {
+                "action": "insert",
+                "parent_id": parent_node_id,
+                "index": index,
+                "content": content,
+                "checked": checked,
+                "checkbox": checkbox,
+                "heading": heading,
+                "color": color,
+            }
+        ]
+
+        if note is not None:
+            changes[0]["note"] = note
+
+        return self.edit_doc(document_id, changes)
+
+    def update_node(
+        self,
+        document_id: str,
+        target_node_id: str,
+        content: Optional[str] = None,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
+
+        changes = [
+            {
+                "action": "edit",
+                "node_id": target_node_id,
+                "checked": checked,
+                "checkbox": checkbox,
+                "heading": heading,
+                "color": color,
+            }
+        ]
+
+        if content is not None:
+            changes[0]["content"] = content
+
+        if note is not None:
+            changes[0]["note"] = note
+
+        return self.edit_doc(document_id, changes)
+
+    def move_node(self, document_id: str, target_node_id: str, parent_node_id: str, index: int) -> dict:
+
+        changes = [{"action": "move", "node_id": target_node_id, "parent_id": parent_node_id, "index": index}]
+
+        return self.edit_doc(document_id, changes)
+
+    def delete_node(self, document_id: str, target_node_id: str) -> dict:
+
+        changes = [{"action": "delete", "node_id": target_node_id}]
+
+        return self.edit_doc(document_id, changes)
