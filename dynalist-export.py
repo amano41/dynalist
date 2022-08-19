@@ -5,15 +5,6 @@ import os
 import sys
 
 
-def doc_read(token, file_id):
-
-    method = "/doc/read"
-
-    data = {"token": token, "file_id": file_id}
-
-    return _post(method, data)
-
-
 def _create_item_map(item_list):
     map = dict()
     for item in item_list:

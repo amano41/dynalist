@@ -77,3 +77,10 @@ class Dynalist:
             changes[0]["title"] = title
 
         return self.edit_file(changes)
+
+    def read_doc(self, document_id: str) -> dict:
+
+        method = "doc/read"
+        json_data = {"token": self.token, "file_id": document_id}
+
+        return self._post(method, json_data)
