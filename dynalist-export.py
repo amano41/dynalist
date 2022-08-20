@@ -87,10 +87,20 @@ def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0
 
     if "note" in node and node["note"]:
         note = html.escape(node["note"])
-        items.append(f'note="{note}"')
+        items.append(f'_note="{note}"')
+
+    if "checkbox" in node and node["checkbox"]:
+        items.append('checkbox="true"')
 
     if "checked" in node and node["checked"]:
-        items.append('checked="true"')
+        items.append('complete="true"')
+
+    if "color" in node and node["color"] != 0:
+        color = node["color"]
+        items.append(f'colorLabel="{color}"')
+
+    if "numbered" in node and node["numbered"]:
+        items.append('listStyle="arabic"')
 
     if "collapsed" in node and node["collapsed"]:
         items.append('collapsed="true"')
@@ -107,7 +117,7 @@ def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0
         output.write(indent + "<" + elem + "/>\n")
 
 
-def export_document(token: str, document_id: str, output: TextIO = sys.stdout) -> None:
+def export_document(token: str, document_id: str, include_root: bool = False, output: TextIO = sys.stdout) -> None:
 
     OPML_HEAD: Final[str] = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -132,10 +142,13 @@ def export_document(token: str, document_id: str, output: TextIO = sys.stdout) -
     output.write(OPML_HEAD.format(json_data["title"]))
 
     node_table = {x["id"]: x for x in json_data["nodes"]}
-    root = node_table["root"]
-    if "children" in root:
-        for child_id in root["children"]:
-            _write_node(child_id, node_table, 2, output)
+    if include_root:
+        _write_node("root", node_table, 2, output)
+    else:
+        root = node_table["root"]
+        if "children" in root:
+            for child_id in root["children"]:
+                _write_node(child_id, node_table, 2, output)
 
     output.write(OPML_TAIL)
 
