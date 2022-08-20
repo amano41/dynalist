@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import sys
+from pathlib import Path
+from typing import Optional
 
 
 def _create_item_map(item_list):
@@ -142,22 +145,48 @@ def _parse_args():
     return parser.parse_args()
 
 
-def _load_token(filename):
+def load_token() -> str:
+    def _read_token(file_path: Path) -> Optional[str]:
+        if not file_path.exists():
+            return None
+        p = file_path.resolve()
+        with p.open("r", encoding="utf-8") as f:
+            token = f.readline().strip()
+        return token
 
-    if not os.path.exists(filename):
-        abort("settings file not found: {}".format(filename))
+    # プロジェクトの JSON ファイル
+    p = Path.cwd().joinpath(".dynalist.json")
+    if p.exists():
+        with p.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            if "token" in data:
+                return data["token"]
 
-    with open(filename, "r") as f:
-        token = f.readline().strip()
+    # 環境変数
+    token = os.getenv("DYNALIST_TOKEN")
+    if token:
+        return token
 
-    return token
+    # 作業ディレクトリの設定ファイル
+    p = Path.cwd().joinpath(".dynalistrc")
+    token = _read_token(p)
+    if token:
+        return token
+
+    # ホームディレクトリの設定ファイル
+    p = Path.home().joinpath(".dynalistrc")
+    token = _read_token(p)
+    if token:
+        return token
+
+    raise RuntimeError("API token not found.")
 
 
-def error(message):
+def error(message: str) -> None:
     print("error: " + message, file=sys.stderr)
 
 
-def abort(message):
+def abort(message: str) -> None:
     error(message)
     sys.exit(1)
 
@@ -169,8 +198,10 @@ def main():
     token = args.token
 
     if token is None:
-        filename = os.path.expanduser("~/.dynalistrc")
-        token = _load_token(filename)
+        try:
+            token = load_token()
+        except RuntimeError as e:
+            abort(str(e))
 
     if args.list:
         print_file_list(token)
