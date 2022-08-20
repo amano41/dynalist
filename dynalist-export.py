@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import html
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Final, Optional, TextIO
+
+from dynalist import Dynalist
 
 
 def _create_item_map(item_list):
@@ -53,42 +56,6 @@ def _find_files(root_file_id, item_map):
         yield from _find_files_recursive(child_id, "")
 
 
-def _escape(text):
-
-    if not hasattr(_escape, "table"):
-        table = {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;"}
-        _escape.table = str.maketrans(table)
-
-    return text.translate(_escape.table)
-
-
-def _write_node(node_id, level, item_map, file=sys.stdout):
-
-    node = item_map[node_id]
-
-    attr = ' text="{}"'.format(_escape(node["content"]))
-
-    if "note" in node and node["note"] != "":
-        attr = attr + ' note="{}"'.format(_escape(node["note"]))
-
-    if "checked" in node and node["checked"] == "true":
-        attr = attr + ' checked="true"'
-
-    if "collapsed" in node and node["collapsed"] == "true":
-        attr = attr + ' collapsed="true"'
-
-    indent = "\t" * level
-
-    if "children" in node:
-        file.write(indent + "<outline" + attr + ">\n")
-        level = level + 1
-        for child_id in node["children"]:
-            _write_node(child_id, level, item_map, file)
-        file.write(indent + "</outline>\n")
-    else:
-        file.write(indent + "<outline" + attr + "/>\n")
-
-
 def print_file_list(token, file=sys.stdout):
 
     json_data = file_list(token)
@@ -103,9 +70,46 @@ def print_file_list(token, file=sys.stdout):
         file.write("{}\t{}\n".format(id, path))
 
 
-def export_document(token, file_id, file=sys.stdout):
+def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout):
 
-    opml_head = (
+    if node_id not in node_table:
+        error(f"Node not found: {node_id}")
+        return
+
+    node = node_table[node_id]
+
+    tag = "outline"
+    items = [tag]
+
+    if "content" in node:
+        text = html.escape(node["content"])
+        items.append(f'text="{text}"')
+
+    if "note" in node and node["note"]:
+        note = html.escape(node["note"])
+        items.append(f'note="{note}"')
+
+    if "checked" in node and node["checked"]:
+        items.append('checked="true"')
+
+    if "collapsed" in node and node["collapsed"]:
+        items.append('collapsed="true"')
+
+    elem = " ".join(items)
+    indent = "\t" * indent_level
+
+    if "children" in node:
+        output.write(indent + "<" + elem + ">\n")
+        for c in node["children"]:
+            _write_node(c, node_table, indent_level + 1, output)
+        output.write(indent + "</" + tag + ">\n")
+    else:
+        output.write(indent + "<" + elem + "/>\n")
+
+
+def export_document(token: str, document_id: str, output: TextIO = sys.stdout) -> None:
+
+    OPML_HEAD: Final[str] = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<opml version="2.0">\n'
         "\t<head>\n"
@@ -116,21 +120,24 @@ def export_document(token, file_id, file=sys.stdout):
         "\t<body>\n"
     )
 
-    opml_tail = "\t</body>\n" "</opml>\n"
+    OPML_TAIL: Final[str] = "\t</body>\n</opml>\n"
 
-    json_data = doc_read(token, file_id)
-    item_map = _create_item_map(json_data["nodes"])
+    d = Dynalist(token)
+    try:
+        json_data = d.read_doc(document_id)
+    except Exception as e:
+        error(str(e))
+        return
 
-    opml_head = opml_head.format(json_data["title"])
+    output.write(OPML_HEAD.format(json_data["title"]))
 
-    file.write(opml_head)
+    node_table = {x["id"]: x for x in json_data["nodes"]}
+    root = node_table["root"]
+    if "children" in root:
+        for child_id in root["children"]:
+            _write_node(child_id, node_table, 2, output)
 
-    root_node = item_map["root"]
-    if "children" in root_node:
-        for child_id in root_node["children"]:
-            _write_node(child_id, 2, item_map, file)
-
-    file.write(opml_tail)
+    output.write(OPML_TAIL)
 
 
 def _parse_args():
