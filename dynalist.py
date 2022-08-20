@@ -4,7 +4,6 @@ Wrapper class for Dyanlist API
 
 import json
 import sys
-from collections import OrderedDict
 from typing import Final, Literal, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -28,7 +27,7 @@ class Dynalist:
         try:
             with urlopen(request) as response:
                 body = response.read().decode("utf-8")
-                result = json.loads(body, object_pairs_hook=OrderedDict)
+                result = json.loads(body)
         except HTTPError as e:
             print(f"error: HTTP {e.code} {e.reason}", file=sys.stderr)
             raise
