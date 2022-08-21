@@ -11,63 +11,48 @@ from typing import Final, Optional, TextIO
 from dynalist import Dynalist
 
 
-def _create_item_map(item_list):
-    map = dict()
-    for item in item_list:
-        map[item["id"]] = item
-    return map
+def _write_item(item_id: str, item_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
+
+    if item_id not in item_table:
+        _error(f"Item not found: {item_id}")
+        return
+
+    item = item_table[item_id]
+    title = item["title"]
+    indent = "\t" * indent_level
+
+    if item["type"] == "document":
+        output.write(f"{indent}{title} ({item_id})\n")
+
+    elif item["type"] == "folder":
+        output.write(f"{indent}[{title}] ({item_id})\n")
+        for child_id in item["children"]:
+            _write_item(child_id, item_table, indent_level + 1, output)
+
+    else:
+        _error(f"Unknown item type: {item['type']}")
+        _error(f"\t{item['title']}")
+        _error(f"\t{item_id}")
 
 
-def _find_root_folder(item_map):
-    def _is_root_folder(id):
-        for item in item_map.values():
-            if "children" not in item:
-                continue
-            if id in item["children"]:
-                return False
-        return True
+def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
 
-    for id in item_map.keys():
-        if _is_root_folder(id):
-            return id
+    d = Dynalist(token)
+    try:
+        json_data = d.list_files()
+    except Exception as e:
+        _error(str(e))
+        return
 
-    _abort("root folder not found")
+    item_table = {x["id"]: x for x in json_data["files"]}
 
-
-def _find_files(root_file_id, item_map):
-    def _find_files_recursive(file_id, path):
-
-        item = item_map[file_id]
-        type = item["type"]
-        path = path + "/" + item["title"]
-
-        if type == "document":
-            yield (file_id, path)
-        elif type == "folder":
-            yield (file_id, path + "/")
-            for child_id in item["children"]:
-                yield from _find_files_recursive(child_id, path)
-        else:
-            _error("unknown file type: {} ({})".format(type, path))
-            yield (file_id, path)
-
-    item = item_map[root_file_id]
-    for child_id in item["children"]:
-        yield from _find_files_recursive(child_id, "")
-
-
-def print_file_list(token, file=sys.stdout):
-
-    json_data = file_list(token)
-    item_map = _create_item_map(json_data["files"])
-
-    root_file_id = json_data["root_file_id"]
-
-    if root_file_id not in item_map:
-        root_file_id = _find_root_folder(item_map)
-
-    for id, path in _find_files(root_file_id, item_map):
-        file.write("{}\t{}\n".format(id, path))
+    if root_id and root_id != json_data["root_file_id"]:
+        _write_item(root_id, item_table, 0, output)
+    else:
+        root = item_table[json_data["root_file_id"]]
+        output.write(f"[/] ({root['id']})\n")
+        for child_id in root["children"]:
+            _write_item(child_id, item_table, 1, output)
 
 
 def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
@@ -224,7 +209,7 @@ def main():
             _abort(str(e))
 
     if args.list:
-        print_file_list(token)
+        list_items(token)
 
     if args.document_id is not None:
         export_document(token, args.document_id)
