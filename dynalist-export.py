@@ -31,7 +31,7 @@ def _find_root_folder(item_map):
         if _is_root_folder(id):
             return id
 
-    abort("root folder not found")
+    _abort("root folder not found")
 
 
 def _find_files(root_file_id, item_map):
@@ -48,7 +48,7 @@ def _find_files(root_file_id, item_map):
             for child_id in item["children"]:
                 yield from _find_files_recursive(child_id, path)
         else:
-            error("unknown file type: {} ({})".format(type, path))
+            _error("unknown file type: {} ({})".format(type, path))
             yield (file_id, path)
 
     item = item_map[root_file_id]
@@ -70,10 +70,10 @@ def print_file_list(token, file=sys.stdout):
         file.write("{}\t{}\n".format(id, path))
 
 
-def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout):
+def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
 
     if node_id not in node_table:
-        error(f"Node not found: {node_id}")
+        _error(f"Node not found: {node_id}")
         return
 
     node = node_table[node_id]
@@ -136,7 +136,7 @@ def export_document(token: str, document_id: str, include_root: bool = False, ou
     try:
         json_data = d.read_doc(document_id)
     except Exception as e:
-        error(str(e))
+        _error(str(e))
         return
 
     output.write(OPML_HEAD.format(json_data["title"]))
@@ -153,7 +153,7 @@ def export_document(token: str, document_id: str, include_root: bool = False, ou
     output.write(OPML_TAIL)
 
 
-def _parse_args():
+def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--token", type=str, default=None)
@@ -165,7 +165,7 @@ def _parse_args():
     return parser.parse_args()
 
 
-def load_token() -> str:
+def _load_token() -> str:
     def _read_token(file_path: Path) -> Optional[str]:
         if not file_path.exists():
             return None
@@ -202,12 +202,12 @@ def load_token() -> str:
     raise RuntimeError("API token not found.")
 
 
-def error(message: str) -> None:
+def _error(message: str) -> None:
     print("error: " + message, file=sys.stderr)
 
 
-def abort(message: str) -> None:
-    error(message)
+def _abort(message: str) -> None:
+    _error(message)
     sys.exit(1)
 
 
@@ -219,9 +219,9 @@ def main():
 
     if token is None:
         try:
-            token = load_token()
+            token = _load_token()
         except RuntimeError as e:
-            abort(str(e))
+            _abort(str(e))
 
     if args.list:
         print_file_list(token)
