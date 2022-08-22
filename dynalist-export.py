@@ -5,54 +5,90 @@ import html
 import json
 import os
 import sys
-from pathlib import Path
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
 from typing import Final, Optional, TextIO
 
 from dynalist import Dynalist
 
 
-def _write_item(item_id: str, item_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
-
-    if item_id not in item_table:
-        _error(f"Item not found: {item_id}")
-        return
-
-    item = item_table[item_id]
-    title = item["title"]
-    indent = "\t" * indent_level
-
-    if item["type"] == "document":
-        output.write(f"{indent}{title} ({item_id})\n")
-
-    elif item["type"] == "folder":
-        output.write(f"{indent}[{title}] ({item_id})\n")
-        for child_id in item["children"]:
-            _write_item(child_id, item_table, indent_level + 1, output)
-
-    else:
-        _error(f"Unknown item type: {item['type']}")
-        _error(f"\t{item['title']}")
-        _error(f"\t{item_id}")
+@dataclass
+class Item:
+    id: str
+    type: str
+    path: PurePosixPath
+    children: list = field(default_factory=list)
 
 
-def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
+def _fetch_item(token: str, root_id: Optional[str]) -> Optional[Item]:
 
     d = Dynalist(token)
     try:
         json_data = d.list_files()
     except Exception as e:
         _error(str(e))
-        return
+        raise
 
     item_table = {x["id"]: x for x in json_data["files"]}
 
-    if root_id and root_id != json_data["root_file_id"]:
-        _write_item(root_id, item_table, 0, output)
+    root_item = item_table[json_data["root_file_id"]]
+    root_item["title"] = "/"
+
+    def _make_item(item_id: str, item_table: dict[str, dict], parent_path: PurePosixPath) -> Optional[Item]:
+
+        if item_id not in item_table:
+            _error("Item not found: {item_id}")
+            return None
+
+        data = item_table[item_id]
+        path = parent_path.joinpath(data["title"])
+
+        item = Item(data["id"], data["type"], path)
+
+        if "children" in data:
+            for child_id in data["children"]:
+                child_item = _make_item(child_id, item_table, path)
+                if child_item:
+                    item.children.append(child_item)
+
+        return item
+
+    if root_id:
+        item = _make_item(root_id, item_table, PurePosixPath())
     else:
-        root = item_table[json_data["root_file_id"]]
-        output.write(f"[/] ({root['id']})\n")
-        for child_id in root["children"]:
-            _write_item(child_id, item_table, 1, output)
+        item = _make_item(json_data["root_file_id"], item_table, PurePosixPath())
+
+    return item
+
+
+def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) -> None:
+
+    if str(item.path) == "/":
+        title = "/"
+    else:
+        title = item.path.name
+
+    indent = "\t" * indent_level
+
+    if item.type == "document":
+        output.write(f"{indent}{title} ({item.id})\n")
+
+    elif item.type == "folder":
+        output.write(f"{indent}[{title}] ({item.id})\n")
+        for child_node in item.children:
+            _write_item(child_node, indent_level + 1, output)
+
+    else:
+        _error(f"Unknown item type: {item.type}")
+        _error(f"\t{title} ({item.id})")
+
+
+def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
+
+    item = _fetch_item(token, root_id)
+
+    if item:
+        _write_item(item, 0, output)
 
 
 def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
