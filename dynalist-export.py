@@ -21,7 +21,7 @@ class Item:
     children: list = field(default_factory=list)
 
 
-def _fetch_item(token: str, root_id: Optional[str]) -> Optional[Item]:
+def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
 
     d = Dynalist(token)
     try:
