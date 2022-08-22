@@ -87,33 +87,32 @@ def find_item(token: str, pattern: str, output: TextIO = sys.stdout) -> None:
     _find_item(item, re.compile(pattern))
 
 
-def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) -> None:
-
-    if str(item.path) == "/":
-        title = "/"
-    else:
-        title = item.path.name
-
-    indent = "\t" * indent_level
-
-    if item.type == "document":
-        output.write(f"{indent}{title} ({item.id})\n")
-
-    elif item.type == "folder":
-        output.write(f"{indent}[{title}] ({item.id})\n")
-        for child_node in item.children:
-            _write_item(child_node, indent_level + 1, output)
-
-    else:
-        _error(f"Unknown type: {item.type}: {item.id}")
-
-
 def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
 
     item = _fetch_item(token, root_id)
 
     if not item:
         return
+
+    def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) -> None:
+
+        if str(item.path) == "/":
+            title = "/"
+        else:
+            title = item.path.name
+
+        indent = "\t" * indent_level
+
+        if item.type == "document":
+            output.write(f"{indent}{title} ({item.id})\n")
+
+        elif item.type == "folder":
+            output.write(f"{indent}[{title}] ({item.id})\n")
+            for child_node in item.children:
+                _write_item(child_node, indent_level + 1, output)
+
+        else:
+            _error(f"Unknown type: {item.type}: {item.id}")
 
     _write_item(item, 0, output)
 
