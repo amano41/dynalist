@@ -4,10 +4,12 @@ import argparse
 import html
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path, PurePosixPath
+from re import Pattern
 from typing import Final, Optional, TextIO, Union
 
 from dynalist import Dynalist
@@ -62,6 +64,29 @@ def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
     return item
 
 
+def find_item(token: str, pattern: str, output: TextIO = sys.stdout) -> None:
+
+    item = _fetch_item(token)
+
+    if not item:
+        return
+
+    def _find_item(item: Item, pattern: Pattern):
+
+        path = str(item.path)
+        if item.type == "folder":
+            path = path + "/"
+
+        if pattern.search(path):
+            output.write(f"{path}\t{item.id}\n")
+
+        if item.type == "folder":
+            for child in item.children:
+                _find_item(child, pattern)
+
+    _find_item(item, re.compile(pattern))
+
+
 def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) -> None:
 
     if str(item.path) == "/":
@@ -87,8 +112,10 @@ def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
 
     item = _fetch_item(token, root_id)
 
-    if item:
-        _write_item(item, 0, output)
+    if not item:
+        return
+
+    _write_item(item, 0, output)
 
 
 def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
