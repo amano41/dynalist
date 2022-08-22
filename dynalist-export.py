@@ -6,8 +6,9 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
+from os import PathLike
 from pathlib import Path, PurePosixPath
-from typing import Final, Optional, TextIO
+from typing import Final, Optional, TextIO, Union
 
 from dynalist import Dynalist
 
@@ -172,6 +173,52 @@ def export_document(token: str, document_id: str, include_root: bool = False, ou
                 _write_node(child_id, node_table, 2, output)
 
     output.write(OPML_TAIL)
+
+
+def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike]) -> None:
+
+    dest_path = Path(dest_dir)
+
+    if not dest_path.exists():
+        _error(f"Directory not found: {dest_path}")
+        return
+
+    if not dest_path.is_dir():
+        _error(f"Not a directory: {dest_path}")
+        return
+
+    item = _fetch_item(token, folder_id)
+
+    if not item:
+        _error(f"Item not found: {folder_id}")
+        return
+
+    if item.type != "folder":
+        _error(f"Not a folder: {folder_id}")
+        return
+
+    def _export_item(item: Item, dest_path: Path) -> None:
+
+        dest_dir = dest_path.joinpath(*item.path.parts[1:-1])
+
+        if item.type == "document":
+            file_path = dest_dir.joinpath(item.path.name + ".opml")
+            with file_path.open("w", encoding="utf-8") as f:
+                export_document(token, item.id, output=f)
+
+        elif item.type == "folder":
+            dir_path = dest_dir.joinpath(item.path.name)
+            if not dir_path.exists():
+                dir_path.mkdir()
+            for child in item.children:
+                _export_item(child, dest_dir)
+
+        else:
+            _error(f"Unknown type: {item.type}")
+            return
+
+    for child in item.children:
+        _export_item(child, dest_path)
 
 
 def _parse_args() -> argparse.Namespace:
