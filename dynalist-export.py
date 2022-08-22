@@ -28,7 +28,7 @@ def _fetch_item(token: str, root_id: Optional[str]) -> Optional[Item]:
         json_data = d.list_files()
     except Exception as e:
         _error(str(e))
-        raise
+        return None
 
     item_table = {x["id"]: x for x in json_data["files"]}
 
@@ -80,8 +80,7 @@ def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) 
             _write_item(child_node, indent_level + 1, output)
 
     else:
-        _error(f"Unknown item type: {item.type}")
-        _error(f"\t{title} ({item.id})")
+        _error(f"Unknown type: {item.type}: {item.id}")
 
 
 def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
@@ -214,7 +213,7 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike]) ->
                 _export_item(child, dest_dir)
 
         else:
-            _error(f"Unknown type: {item.type}")
+            _error(f"Unknown type: {item.type}: {item.id}")
             return
 
     for child in item.children:
