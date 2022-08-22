@@ -1,283 +1,221 @@
-#!/usr/bin/env python3
+"""
+Wrapper class for Dyanlist API
+"""
 
-import argparse
 import json
-import os
 import sys
-from collections import OrderedDict
+from typing import Final, Literal, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-def _post(method, json_data):
+class Dynalist:
 
-    url = 'https://dynalist.io/api/v1' + method
+    END_POINT: Final[str] = "https://dynalist.io/api/v1/"
 
-    data = json.dumps(json_data).encode('utf-8')
+    def __init__(self, token):
+        self.token = token
 
-    headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0'
-    }
+    def _post(self, method: str, json_data: dict) -> dict:
 
-    request = Request(url, data=data, headers=headers)
+        url = self.END_POINT + method
+        data = json.dumps(json_data).encode("utf-8")
+        headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
 
-    try:
-        with urlopen(request) as response:
-            body = response.read().decode('utf-8')
-            result = json.loads(body, object_pairs_hook=OrderedDict)
-    except HTTPError as e:
-        abort('HTTP {} {}'.format(e.code, e.reason))
-    except URLError as e:
-        abort(str(e.reason))
+        request = Request(url, data, headers)
 
-    if result['_code'].lower() != 'ok':
-        abort(result['_msg'])
+        try:
+            with urlopen(request) as response:
+                body = response.read().decode("utf-8")
+                result = json.loads(body)
+        except HTTPError as e:
+            print(f"error: HTTP {e.code} {e.reason}", file=sys.stderr)
+            raise
+        except URLError as e:
+            print(f"error: {e.reason}", file=sys.stderr)
+            raise
 
-    return result
+        if result["_code"].lower() != "ok":
+            print(f"error: {result['_msg']}", file=sys.stderr)
 
+        return result
 
-def file_list(token):
+    def list_files(self) -> dict:
 
-    method = '/file/list'
+        method = "file/list"
+        json_data = {"token": self.token}
 
-    data = {
-        'token': token
-    }
+        return self._post(method, json_data)
 
-    return _post(method, data)
+    def edit_file(self, changes: list[dict]) -> dict:
 
+        method = "file/edit"
+        json_data = {"token": self.token, "changes": changes}
 
-def file_edit(token, changes):
+        return self._post(method, json_data)
 
-    method = '/file/edit'
+    def move_file(self, file_type: Literal["folder", "document"], file_id: str, parent_id: str, index: int) -> dict:
 
-    data = {
-        'token': token,
-        'changes': changes
-    }
+        changes = [{"action": "move", "type": file_type, "file_id": file_id, "parent_id": parent_id, "index": index}]
 
-    return _post(method, data)
+        return self.edit_file(changes)
 
+    def rename_file(self, file_type: Literal["folder", "document"], file_id: str, title: str) -> dict:
 
-def file_edit_move(token, type, file_id, parent_id, index=-1):
+        changes = [{"action": "edit", "type": file_type, "file_id": file_id, "title": title}]
 
-    change = {
-        'action': 'move',
-        'type': type,
-        'file_id': file_id,
-        'parent_id': parent_id,
-        'index': index
-    }
+        return self.edit_file(changes)
 
-    return file_edit(token, [change])
+    def create_file(
+        self, file_type: Literal["folder", "document"], parent_id: str, index: int, title: Optional[str] = None
+    ) -> dict:
 
+        changes = [{"action": "create", "type": file_type, "parent_id": parent_id, "index": index}]
 
-def file_edit_edit(token, type, file_id, title):
+        if title is not None:
+            changes[0]["title"] = title
 
-    change = {
-        'action': 'edit',
-        'type': type,
-        'file_id': file_id,
-        'title': title
-    }
+        return self.edit_file(changes)
 
-    return file_edit(token, [change])
+    def read_doc(self, document_id: str) -> dict:
 
+        method = "doc/read"
+        json_data = {"token": self.token, "file_id": document_id}
 
-def doc_read(token, file_id):
+        return self._post(method, json_data)
 
-    method = '/doc/read'
+    def check_for_updates(self, document_ids: list[str]) -> dict:
 
-    data = {
-        'token': token,
-        'file_id': file_id
-    }
+        method = "doc/check_for_updates"
+        json_data = {"token": self.token, "file_ids": document_ids}
 
-    return _post(method, data)
+        return self._post(method, json_data)
 
+    def edit_doc(self, document_id: str, changes: list[dict]) -> dict:
 
-def _create_item_map(item_list):
-    map = dict()
-    for item in item_list:
-        map[item['id']] = item
-    return map
+        method = "doc/edit"
+        json_data = {"token": self.token, "file_id": document_id, "changes": changes}
 
+        return self._post(method, json_data)
 
-def _find_root_folder(item_map):
+    def insert_node(
+        self,
+        document_id: str,
+        parent_node_id: str,
+        index: int,
+        content: str,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
 
-    def _is_root_folder(id):
-        for item in item_map.values():
-            if 'children' not in item:
-                continue
-            if id in item['children']:
-                return False
-        return True
+        changes = [
+            {
+                "action": "insert",
+                "parent_id": parent_node_id,
+                "index": index,
+                "content": content,
+                "checked": checked,
+                "checkbox": checkbox,
+                "heading": heading,
+                "color": color,
+            }
+        ]
 
-    for id in item_map.keys():
-        if _is_root_folder(id):
-            return id
+        if note is not None:
+            changes[0]["note"] = note
 
-    abort('root folder not found')
+        return self.edit_doc(document_id, changes)
 
+    def update_node(
+        self,
+        document_id: str,
+        target_node_id: str,
+        content: Optional[str] = None,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
 
-def _find_files(root_file_id, item_map):
+        changes = [
+            {
+                "action": "edit",
+                "node_id": target_node_id,
+                "checked": checked,
+                "checkbox": checkbox,
+                "heading": heading,
+                "color": color,
+            }
+        ]
 
-    def _find_files_recursive(file_id, path):
+        if content is not None:
+            changes[0]["content"] = content
 
-        item = item_map[file_id]
-        type = item['type']
-        path = path + '/' + item['title']
+        if note is not None:
+            changes[0]["note"] = note
 
-        if type == 'document':
-            yield (file_id, path)
-        elif type == 'folder':
-            yield (file_id, path + '/')
-            for child_id in item['children']:
-                yield from _find_files_recursive(child_id, path)
-        else:
-            error('unknown file type: {} ({})'.format(type, path))
-            yield (file_id, path)
+        return self.edit_doc(document_id, changes)
 
-    item = item_map[root_file_id]
-    for child_id in item['children']:
-        yield from _find_files_recursive(child_id, '')
+    def move_node(self, document_id: str, target_node_id: str, parent_node_id: str, index: int) -> dict:
 
+        changes = [{"action": "move", "node_id": target_node_id, "parent_id": parent_node_id, "index": index}]
 
-def _escape(text):
+        return self.edit_doc(document_id, changes)
 
-    if not hasattr(_escape, 'table'):
-        table = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '\"': '&quot;',
-            '\'': '&apos;'
+    def delete_node(self, document_id: str, target_node_id: str) -> dict:
+
+        changes = [{"action": "delete", "node_id": target_node_id}]
+
+        return self.edit_doc(document_id, changes)
+
+    def add_to_inbox(
+        self,
+        index: int,
+        content: str,
+        note: Optional[str] = None,
+        checked: bool = False,
+        checkbox: bool = False,
+        heading: int = 0,
+        color: int = 0,
+    ) -> dict:
+
+        method = "inbox/add"
+        json_data = {
+            "token": self.token,
+            "index": index,
+            "content": content,
+            "checked": checked,
+            "checkbox": checkbox,
+            "heading": heading,
+            "color": color,
         }
-        _escape.table = str.maketrans(table)
 
-    return text.translate(_escape.table)
+        if note is not None:
+            json_data["note"] = note
 
+        return self._post(method, json_data)
 
-def _write_node(node_id, level, item_map, file=sys.stdout):
+    def upload_file(self, file_name: str, content_type: str, base64_data: str) -> dict:
 
-    node = item_map[node_id]
+        method = "upload"
+        json_data = {"token": self.token, "filename": file_name, "content_type": content_type, "data": base64_data}
 
-    attr = ' text="{}"'.format(_escape(node['content']))
+        return self._post(method, json_data)
 
-    if 'note' in node and node['note'] != '':
-        attr = attr + ' note="{}"'.format(_escape(node['note']))
+    def get_pref(self, key: Literal["inbox_location", "inbox_move_position"]) -> dict:
 
-    if 'checked' in node and node['checked'] == 'true':
-        attr = attr + ' checked="true"'
+        method = "pref/get"
+        json_data = {"token": self.token, "key": key}
 
-    if 'collapsed' in node and node['collapsed'] == 'true':
-        attr = attr + ' collapsed="true"'
+        return self._post(method, json_data)
 
-    indent = '\t' * level
+    def set_pref(self, key: Literal["inbox_location", "inbox_move_position"], value: str) -> dict:
 
-    if 'children' in node:
-        file.write(indent + '<outline' + attr + '>\n')
-        level = level + 1
-        for child_id in node['children']:
-            _write_node(child_id, level, item_map, file)
-        file.write(indent + '</outline>\n')
-    else:
-        file.write(indent + '<outline' + attr + '/>\n')
+        method = "pref/set"
+        json_data = {"token": self.token, "key": key, "value": value}
 
-
-def print_file_list(token, file=sys.stdout):
-
-    json_data = file_list(token)
-    item_map = _create_item_map(json_data['files'])
-
-    root_file_id = json_data['root_file_id']
-
-    if root_file_id not in item_map:
-        root_file_id = _find_root_folder(item_map)
-
-    for id, path in _find_files(root_file_id, item_map):
-        file.write('{}\t{}\n'.format(id, path))
-
-
-def export_document(token, file_id, file=sys.stdout):
-
-    opml_head = '<?xml version="1.0" encoding="utf-8"?>\n' \
-                '<opml version="2.0">\n' \
-                '\t<head>\n' \
-                '\t\t<title>{}</title>\n' \
-                '\t\t<flavor>dynalist</flavor>\n' \
-                '\t\t<source>https://dynalist.io</source>\n' \
-                '\t</head>\n' \
-                '\t<body>\n'
-
-    opml_tail = '\t</body>\n' \
-                '</opml>\n'
-
-    json_data = doc_read(token, file_id)
-    item_map = _create_item_map(json_data['nodes'])
-
-    opml_head = opml_head.format(json_data['title'])
-
-    file.write(opml_head)
-
-    root_node = item_map['root']
-    if 'children' in root_node:
-        for child_id in root_node['children']:
-            _write_node(child_id, 2, item_map, file)
-
-    file.write(opml_tail)
-
-
-def _parse_args():
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--token', type=str, default=None)
-
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-l', '--list', action='store_true')
-    group.add_argument('-e', '--export', type=str, dest='document_id',
-                       default=None)
-
-    return parser.parse_args()
-
-
-def _load_token(filename):
-
-    if not os.path.exists(filename):
-        abort('settings file not found: {}'.format(filename))
-
-    with open(filename, 'r') as f:
-        token = f.readline().strip()
-
-    return token
-
-
-def error(message):
-    print('error: ' + message, file=sys.stderr)
-
-
-def abort(message):
-    error(message)
-    sys.exit(1)
-
-
-def main():
-
-    args = _parse_args()
-
-    token = args.token
-
-    if token is None:
-        filename = os.path.expanduser('~/.dynalistrc')
-        token = _load_token(filename)
-
-    if args.list:
-        print_file_list(token)
-
-    if args.document_id is not None:
-        export_document(token, args.document_id)
-
-
-if __name__ == '__main__':
-    main()
+        return self._post(method, json_data)

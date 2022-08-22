@@ -3,7 +3,7 @@
 set -eu
 
 
-CMD="$(dirname $(realpath $0))/dynalist.py"
+CMD="$(dirname $(realpath $0))/dynalist-export.py"
 
 
 function usage() {
@@ -24,7 +24,7 @@ function list() {
 
 
 function fetch() {
-	
+
 	local id="$1"
 	local dest="$(echo "$2" | sed -e 's|^/||').opml"
 	local dest_dir=$(dirname $dest)
@@ -38,7 +38,7 @@ function fetch() {
 
 
 function pull() {
-	
+
 	if [ ! -f '.dynalist' ]; then
 		echo "error: .dynalist not found." 1>&2
 		exit 1
@@ -52,13 +52,13 @@ function pull() {
 	do
 		fetch "$id" "$name"
 	done
-	
+
 	IFS="$OLD_IFS"
 }
 
 
 function status() {
-	
+
 	if [ ! -f '.dynalist' ]; then
 		echo "error: .dynalist not found." 1>&2
 		exit 1
@@ -68,7 +68,7 @@ function status() {
 
 	OLD_IFS="$IFS"
 	IFS=$'\t'
-	
+
 	exec < .dynalist
 	while read -r id name
 	do
@@ -79,7 +79,7 @@ function status() {
 			echo -e "\t./$name"
 		fi
 	done
-	
+
 	IFS="$OLD_IFS"
 }
 
