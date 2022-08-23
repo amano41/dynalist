@@ -246,6 +246,125 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike]) ->
         _export_item(child, dest_path)
 
 
+def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
+
+    root_item = _fetch_item(token, root_id)
+
+    if not root_item:
+        _error(f"Folder not found on Dynalist: {root_id}")
+        return None
+
+    def _collect_document_id_path(item: Item):
+        if item.type == "document":
+            yield item.id, item.path
+        elif item.type == "folder":
+            for child in item.children:
+                for i, p in _collect_document_id_path(child):
+                    yield i, p
+        else:
+            _error(f"Unknown type: {item.type}: {item.id}")
+
+    # document_id -> path の dict
+    paths = {}
+    for i, p in _collect_document_id_path(root_item):
+        paths[i] = str(p.relative_to(root_item.path))
+
+    document_ids = list(paths.keys())
+
+    # document_id -> version の dict
+    d = Dynalist(token)
+    versions = d.check_for_updates(document_ids)["versions"]
+
+    status = {}
+    for i in document_ids:
+        status[i] = {"path": paths[i], "version": versions[i]}
+
+    return status
+
+
+def status(token: str, output: TextIO = sys.stdout) -> None:
+
+    p = Path.cwd().joinpath(".dynalist.json")
+
+    if not p.exists():
+        _error(f"Project settings not found: {str(p)}")
+        return
+
+    with p.open("r", encoding="utf-8") as f:
+        settings = json.load(f)
+
+    if "status" in settings:
+        local_status = settings["status"]
+    else:
+        local_status = dict()
+
+    remote_status = _get_remote_status(token, settings["root"])
+    if not remote_status:
+        remote_status = dict()
+
+    # 辞書のキー（dict_key）は並び順が保持されている
+    local_items = local_status.keys()
+    remote_items = remote_status.keys()
+
+    # 並び順を保つため set ではなく list を使う
+    # dict_key を集合演算すると set になり並び順が崩れる
+    local_only_items = [x for x in local_items if x not in remote_items]  # local_items - remote_items
+    remote_only_items = [x for x in remote_items if x not in local_items]  # remote_items - local_items
+    common_items = [x for x in remote_items if x in local_items]  # local_items & remote_items
+
+    local_newer_items = []
+    remote_newer_items = []
+    up_to_date_items = []
+
+    for i in common_items:
+        lv = local_status[i]["version"]
+        rv = remote_status[i]["version"]
+        if rv < lv:
+            local_newer_items.append(i)
+        elif rv > lv:
+            remote_newer_items.append(i)
+        else:
+            up_to_date_items.append(i)
+
+    def _write_items(heading: str, item_ids: list[str]):
+
+        output.write(f"{heading}:\n\n")
+
+        for id in item_ids:
+
+            if id in local_status:
+                local_path = local_status[id]["path"]
+                output.write(f"\t{local_path}")
+
+                if id in remote_status:
+                    remote_path = remote_status[id]["path"]
+                    if local_path != remote_path:
+                        output.write(f" => {remote_path}")
+
+                output.write("\n")
+
+            elif id in remote_status:
+                remote_path = remote_status[id]["path"]
+                output.write(f"\t{remote_path}\n")
+
+        output.write("\n")
+
+    if local_only_items:
+        _write_items("Deleted (local only)", local_only_items)
+
+    if local_newer_items:
+        _write_items("Outdated (local is newer than remote)", local_newer_items)
+
+    if remote_only_items:
+        _write_items("Added (remote only)", remote_only_items)
+
+    if remote_newer_items:
+        _write_items("Modified (remote is newer than local)", remote_newer_items)
+
+    if up_to_date_items:
+        _write_items("No Changes", up_to_date_items)
+
+
 def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
