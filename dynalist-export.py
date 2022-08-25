@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import errno
 import html
 import json
 import os
@@ -282,16 +283,34 @@ def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
     return status
 
 
-def status(token: str, output: TextIO = sys.stdout) -> None:
+def _load_settings() -> dict:
 
     p = Path.cwd().joinpath(".dynalist.json")
 
     if not p.exists():
-        _error(f"Project settings not found: {str(p)}")
-        return
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), p)
 
     with p.open("r", encoding="utf-8") as f:
         settings = json.load(f)
+
+    return settings
+
+
+def _save_settings(json_data: dict) -> None:
+
+    p = Path.cwd().joinpath(".dynalist.json")
+
+    with p.open("w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+
+def status(token: str, output: TextIO = sys.stdout) -> None:
+
+    try:
+        settings = _load_settings()
+    except FileNotFoundError as e:
+        _error(str(e))
+        return
 
     if "status" in settings:
         local_status = settings["status"]
@@ -365,6 +384,31 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
         _write_items("No Changes", up_to_date_items)
 
 
+def update(token: str) -> None:
+
+    try:
+        settings = _load_settings()
+    except FileNotFoundError as e:
+        _error(str(e))
+        return
+
+    if "root" in settings:
+        root_id = settings["root"]
+    else:
+        _error("Invalid settings file")
+        return
+
+    if "dest" in settings:
+        dest_dir = Path(settings["dest"])
+    else:
+        dest_dir = Path.cwd()
+
+    export_folder(token, root_id, dest_dir)
+
+    settings["status"] = _get_remote_status(token, root_id)
+    _save_settings(settings)
+
+
 def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
@@ -378,25 +422,26 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _load_token() -> str:
-    def _read_token(file_path: Path) -> Optional[str]:
-        if not file_path.exists():
-            return None
-        p = file_path.resolve()
-        with p.open("r", encoding="utf-8") as f:
-            token = f.readline().strip()
-        return token
 
-    # プロジェクトの JSON ファイル
-    p = Path.cwd().joinpath(".dynalist.json")
-    if p.exists():
-        with p.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-            if "token" in data:
-                return data["token"]
+    # プロジェクトの設定ファイル
+    try:
+        settings = _load_settings()
+    except FileNotFoundError:
+        settings = None
+
+    if settings and "token" in settings:
+        return settings["token"]
 
     # 環境変数
     token = os.getenv("DYNALIST_TOKEN")
     if token:
+        return token
+
+    def _read_token(file_path: Path) -> Optional[str]:
+        if not file_path.exists():
+            return None
+        with file_path.open("r", encoding="utf-8") as f:
+            token = f.readline().strip()
         return token
 
     # 作業ディレクトリの設定ファイル
