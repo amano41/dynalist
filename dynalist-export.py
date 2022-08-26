@@ -191,7 +191,7 @@ def _write_document(json_data: dict, root_node: bool = False, output: TextIO = s
 
 
 def export_document(
-    token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = "-"
+    token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = ""
 ) -> None:
 
     d = Dynalist(token)
@@ -214,7 +214,7 @@ def export_document(
         _write_document(json_data, root_node, f)
 
 
-def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = ".") -> None:
+def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "") -> None:
 
     dest_path = Path(dest_dir)
 
@@ -253,6 +253,31 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
 
     for child in item.children:
         _export_item(child, dest_path)
+
+
+def export(token: str, item_id: str, dest_path: Union[str, PathLike] = "") -> None:
+
+    d = Dynalist(token)
+    try:
+        json_data = d.list_files()
+    except Exception as e:
+        _error(str(e))
+        return
+
+    for item in json_data["files"]:
+        if item["id"] == item_id:
+            item_type = item["type"]
+            break
+    else:
+        _error(f"Item not found: {item_id}")
+        return
+
+    if item_type == "document":
+        export_document(token, item_id, False, dest_path)
+    elif item_type == "folder":
+        export_folder(token, item_id, dest_path)
+    else:
+        _error(f"Unknown type: {item_type}: {item_id}")
 
 
 def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
