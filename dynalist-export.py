@@ -463,11 +463,20 @@ def update(token: str) -> None:
 def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--token", type=str, default=None)
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-l", "--list", action="store_true")
-    group.add_argument("-e", "--export", type=str, dest="document_id", default=None)
+    parser.add_argument("-t", "--token")
+
+    group = parser.add_argument_group("exporting", "export a single document or by a folder")
+    group.add_argument("-e", "--export", metavar="ID")
+    group.add_argument("-o", "--out", metavar="PATH")
+
+    group = parser.add_argument_group("querying", "retrieve a list of items or search for items")
+    group.add_argument("-l", "--list", metavar="ID", nargs="?", const="root")
+    group.add_argument("-f", "--find", metavar="PATTERN")
+
+    group = parser.add_argument_group("mirroring", "mirror a remote folder to a local directory")
+    group.add_argument("-s", "--status", action="store_true")
+    group.add_argument("-u", "--update", action="store_true")
 
     return parser.parse_args()
 
@@ -523,19 +532,37 @@ def main():
 
     args = _parse_args()
 
-    token = args.token
-
-    if token is None:
+    if args.token:
+        token = args.token
+    else:
         try:
             token = _load_token()
-        except RuntimeError as e:
-            _abort(str(e))
+        except Exception as e:
+            print(e)
+            return
+
+    if args.find:
+        find_item(token, args.find)
+        return
 
     if args.list:
-        list_items(token)
+        if args.list == "root":
+            list_items(token)
+        else:
+            list_items(token, args.list)
+        return
 
-    if args.document_id is not None:
-        export_document(token, args.document_id)
+    if args.export:
+        if args.out:
+            export(token, args.export, args.out)
+        else:
+            export(token, args.export)
+
+    if args.status:
+        status(token)
+
+    if args.update:
+        update(token)
 
 
 if __name__ == "__main__":
