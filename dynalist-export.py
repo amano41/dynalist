@@ -74,12 +74,8 @@ def find_item(token: str, pattern: str, output: TextIO = sys.stdout) -> None:
 
     def _find_item(item: Item, pattern: Pattern):
 
-        path = str(item.path)
-        if item.type == "folder":
-            path = path + "/"
-
-        if pattern.search(path):
-            output.write(f"{path}\t{item.id}\n")
+        if pattern.search(item.path.name):
+            output.write(f"{item.path}\t{item.id}\n")
 
         if item.type == "folder":
             for child in item.children:
