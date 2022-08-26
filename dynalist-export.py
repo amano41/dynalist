@@ -327,23 +327,31 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
 
     # 並び順を保つため set ではなく list を使う
     # dict_key を集合演算すると set になり並び順が崩れる
-    local_only_items = [x for x in local_items if x not in remote_items]  # local_items - remote_items
-    remote_only_items = [x for x in remote_items if x not in local_items]  # remote_items - local_items
-    common_items = [x for x in remote_items if x in local_items]  # local_items & remote_items
-
-    local_newer_items = []
+    remote_only_items = []
+    local_only_items = []
     remote_newer_items = []
-    up_to_date_items = []
+    local_newer_items = []
+    same_version_items = []
 
-    for i in common_items:
-        lv = local_status[i]["version"]
-        rv = remote_status[i]["version"]
-        if rv < lv:
-            local_newer_items.append(i)
-        elif rv > lv:
-            remote_newer_items.append(i)
+    for id in remote_items:
+
+        if id not in local_items:
+            remote_only_items.append(id)
+            continue
+
+        lv = local_status[id]["version"]
+        rv = remote_status[id]["version"]
+        if lv > rv:
+            local_newer_items.append(id)
+        elif lv < rv:
+            remote_newer_items.append(id)
         else:
-            up_to_date_items.append(i)
+            same_version_items.append(id)
+
+    for id in local_items:
+
+        if id not in remote_items:
+            local_only_items.append(id)
 
     def _write_items(heading: str, item_ids: list[str]):
 
