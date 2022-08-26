@@ -332,6 +332,7 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
     remote_newer_items = []
     local_newer_items = []
     same_version_items = []
+    replace_existing = []
 
     for id in remote_items:
 
@@ -353,6 +354,12 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
         if id not in remote_items:
             local_only_items.append(id)
 
+        lp = local_status[id]["path"]
+        for r in remote_status:
+            rp = remote_status[r]["path"]
+            if lp == rp and id != r:
+                replace_existing.append(r)
+
     def _write_items(heading: str, item_ids: list[str]):
 
         output.write(f"{heading}:\n\n")
@@ -360,19 +367,22 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
         for id in item_ids:
 
             if id in local_status:
-                local_path = local_status[id]["path"]
-                output.write(f"\t{local_path}")
+                lp = local_status[id]["path"]
+                output.write(f"\t{lp}")
 
                 if id in remote_status:
-                    remote_path = remote_status[id]["path"]
-                    if local_path != remote_path:
-                        output.write(f" => {remote_path}")
-
-                output.write("\n")
+                    rp = remote_status[id]["path"]
+                    if lp != rp:
+                        output.write(f" => {rp}")
 
             elif id in remote_status:
-                remote_path = remote_status[id]["path"]
-                output.write(f"\t{remote_path}\n")
+                rp = remote_status[id]["path"]
+                output.write(f"\t{rp}")
+
+            if id in replace_existing:
+                output.write(" *")
+
+            output.write("\n")
 
         output.write("\n")
 
