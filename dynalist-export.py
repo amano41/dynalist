@@ -161,7 +161,7 @@ def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0
         output.write(indent + "<" + elem + "/>\n")
 
 
-def export_document(token: str, document_id: str, include_root: bool = False, output: TextIO = sys.stdout) -> None:
+def _write_document(json_data: dict, root_node: bool = False, output: TextIO = sys.stdout) -> None:
 
     OPML_HEAD: Final[str] = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -176,17 +176,10 @@ def export_document(token: str, document_id: str, include_root: bool = False, ou
 
     OPML_TAIL: Final[str] = "\t</body>\n</opml>\n"
 
-    d = Dynalist(token)
-    try:
-        json_data = d.read_doc(document_id)
-    except Exception as e:
-        _error(str(e))
-        return
-
     output.write(OPML_HEAD.format(json_data["title"]))
 
     node_table = {x["id"]: x for x in json_data["nodes"]}
-    if include_root:
+    if root_node:
         _write_node("root", node_table, 2, output)
     else:
         root = node_table["root"]
@@ -197,15 +190,37 @@ def export_document(token: str, document_id: str, include_root: bool = False, ou
     output.write(OPML_TAIL)
 
 
-def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike]) -> None:
+def export_document(
+    token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = "-"
+) -> None:
+
+    d = Dynalist(token)
+    try:
+        json_data = d.read_doc(document_id)
+    except Exception as e:
+        _error(str(e))
+        return
+
+    if dest_file == "-":
+        _write_document(json_data, root_node, sys.stdout)
+        return
+
+    if dest_file == "":
+        p = Path(json_data["title"] + ".opml")
+    else:
+        p = Path(dest_file)
+
+    with p.open("w", encoding="utf-8") as f:
+        _write_document(json_data, root_node, f)
+
+
+def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = ".") -> None:
 
     dest_path = Path(dest_dir)
 
     if not dest_path.exists():
-        _error(f"Directory not found: {dest_path}")
-        return
-
-    if not dest_path.is_dir():
+        dest_path.mkdir()
+    elif not dest_path.is_dir():
         _error(f"Not a directory: {dest_path}")
         return
 
@@ -219,21 +234,18 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike]) ->
         _error(f"Not a folder: {folder_id}")
         return
 
-    def _export_item(item: Item, dest_path: Path) -> None:
-
-        dest_dir = dest_path.joinpath(*item.path.parts[1:-1])
+    def _export_item(item: Item, parent: Path):
 
         if item.type == "document":
-            file_path = dest_dir.joinpath(item.path.name + ".opml")
-            with file_path.open("w", encoding="utf-8") as f:
-                export_document(token, item.id, output=f)
+            p = parent.joinpath(item.path.name + ".opml")
+            export_document(token, item.id, False, p)
 
         elif item.type == "folder":
-            dir_path = dest_dir.joinpath(item.path.name)
-            if not dir_path.exists():
-                dir_path.mkdir()
-            for child in item.children:
-                _export_item(child, dest_dir)
+            p = parent.joinpath(item.path.name)
+            if not p.exists():
+                p.mkdir()
+            for c in item.children:
+                _export_item(c, p)
 
         else:
             _error(f"Unknown type: {item.type}: {item.id}")
