@@ -376,20 +376,20 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
 
         output.write("\n")
 
-    if local_only_items:
-        _write_items("Deleted (local only)", local_only_items)
-
-    if local_newer_items:
-        _write_items("Outdated (local is newer than remote)", local_newer_items)
-
     if remote_only_items:
-        _write_items("Added (remote only)", remote_only_items)
+        _write_items("New (found only on remote)", remote_only_items)
+
+    if local_only_items:
+        _write_items("Deleted (found only on local)", local_only_items)
 
     if remote_newer_items:
         _write_items("Modified (remote is newer than local)", remote_newer_items)
 
-    if up_to_date_items:
-        _write_items("No Changes", up_to_date_items)
+    if local_newer_items:
+        _write_items("Outdated (local is newer than remote)", local_newer_items)
+
+    if same_version_items:
+        _write_items("No Changes", same_version_items)
 
 
 def update(token: str) -> None:
