@@ -65,7 +65,7 @@ def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
     return item
 
 
-def find_item(token: str, pattern: str, output: TextIO = sys.stdout) -> None:
+def find_item(token: str, pattern: str, ignore_case: bool = False, output: TextIO = sys.stdout) -> None:
 
     item = _fetch_item(token)
 
@@ -81,7 +81,10 @@ def find_item(token: str, pattern: str, output: TextIO = sys.stdout) -> None:
             for child in item.children:
                 _find_item(child, pattern)
 
-    _find_item(item, re.compile(pattern))
+    if ignore_case:
+        _find_item(item, re.compile(pattern, re.IGNORECASE))
+    else:
+        _find_item(item, re.compile(pattern))
 
 
 def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
@@ -473,6 +476,7 @@ def _parse_args() -> argparse.Namespace:
     group = parser.add_argument_group("querying", "retrieve a list of items or search for items")
     group.add_argument("-l", "--list", metavar="ID", nargs="?", const="root")
     group.add_argument("-f", "--find", metavar="PATTERN")
+    group.add_argument("-i", "--ignore-case", action="store_true")
 
     group = parser.add_argument_group("mirroring", "mirror a remote folder to a local directory")
     group.add_argument("-s", "--status", action="store_true")
@@ -542,7 +546,7 @@ def main():
             return
 
     if args.find:
-        find_item(token, args.find)
+        find_item(token, args.find, args.ignore_case)
         return
 
     if args.list:
