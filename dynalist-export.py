@@ -200,9 +200,8 @@ def export_document(
     d = Dynalist(token)
     try:
         json_data = d.read_doc(document_id)
-    except Exception as e:
-        _error(str(e))
-        return
+    except Exception:
+        raise
 
     if dest_file == "-":
         _write_document(json_data, root_node, sys.stdout)
@@ -310,7 +309,11 @@ def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
 
     # document_id -> version の dict
     d = Dynalist(token)
-    versions = d.check_for_updates(document_ids)["versions"]
+    try:
+        json_data = d.check_for_updates(document_ids)
+    except Exception:
+        raise
+    versions = json_data["versions"]
 
     status = {}
     for i in document_ids:
