@@ -84,6 +84,38 @@ def _fetch_item(token: str, root_id: Optional[str] = None) -> Item:
     return item
 
 
+def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout):
+    """list the specified item and its descendants with their IDs"""
+
+    def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout):
+
+        if str(item.path) == "/":
+            title = "/"
+        else:
+            title = item.path.name
+
+        indent = "\t" * indent_level
+
+        if item.type == "document":
+            output.write(f"{indent}{title} ({item.id})\n")
+
+        elif item.type == "folder":
+            output.write(f"{indent}[{title}] ({item.id})\n")
+            for child_node in item.children:
+                _write_item(child_node, indent_level + 1, output)
+
+        else:
+            _error(f"Unknown type: {item.type}: {item.id}")
+
+    try:
+        item = _fetch_item(token, root_id)
+    except Exception as e:
+        _error(str(e))
+        return
+
+    _write_item(item, 0, output)
+
+
 def find_item(token: str, pattern: str, ignore_case: bool = False, output: TextIO = sys.stdout) -> None:
 
     item = _fetch_item(token)
@@ -104,36 +136,6 @@ def find_item(token: str, pattern: str, ignore_case: bool = False, output: TextI
         _find_item(item, re.compile(pattern, re.IGNORECASE))
     else:
         _find_item(item, re.compile(pattern))
-
-
-def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout) -> None:
-
-    item = _fetch_item(token, root_id)
-
-    if not item:
-        return
-
-    def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout) -> None:
-
-        if str(item.path) == "/":
-            title = "/"
-        else:
-            title = item.path.name
-
-        indent = "\t" * indent_level
-
-        if item.type == "document":
-            output.write(f"{indent}{title} ({item.id})\n")
-
-        elif item.type == "folder":
-            output.write(f"{indent}[{title}] ({item.id})\n")
-            for child_node in item.children:
-                _write_item(child_node, indent_level + 1, output)
-
-        else:
-            _error(f"Unknown type: {item.type}: {item.id}")
-
-    _write_item(item, 0, output)
 
 
 def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
