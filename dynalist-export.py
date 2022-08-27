@@ -116,10 +116,10 @@ def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
     _write_item(item, 0, output)
 
 
-def tree_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout):
+def tree_items(token: str, root_id: Optional[str] = None, sort: bool = False, output: TextIO = sys.stdout):
     """display a tree of items with their IDs"""
 
-    def _tree(item: Item, indent: str, last_child: bool, output: TextIO):
+    def _tree(item: Item, indent: str, last_child: bool, sort: bool, output: TextIO):
         if last_child:
             branch = "└─"
         else:
@@ -132,9 +132,13 @@ def tree_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
                 indent = indent + "　　"
             else:
                 indent = indent + "│　"
-            num = len(item.children)
-            for index, child in enumerate(item.children):
-                _tree(child, indent, index == num - 1, output)
+            if sort:
+                children = sorted(item.children, key=lambda x: x.path)
+            else:
+                children = item.children
+            num = len(children)
+            for index, child in enumerate(children):
+                _tree(child, indent, index == num - 1, sort, output)
         else:
             _error(f"Unknown type: {item.type}: {item.id}")
 
@@ -148,9 +152,13 @@ def tree_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
         output.write(f"{item.path.name} [{item.id}]\n")
     elif item.type == "folder":
         output.write(f"{item.path.name}/ [{item.id}]\n")
-        num = len(item.children)
-        for index, child in enumerate(item.children):
-            _tree(child, "", index == num - 1, output)
+        if sort:
+            children = sorted(item.children, key=lambda x: x.path)
+        else:
+            children = item.children
+        num = len(children)
+        for index, child in enumerate(children):
+            _tree(child, "", index == num - 1, sort, output)
     else:
         _error(f"Unknown type: {item.type}: {item.id}")
 
@@ -537,6 +545,7 @@ def _parse_args() -> argparse.Namespace:
     group = parser.add_argument_group("querying", "retrieve a list of items or search for items")
     group.add_argument("-l", "--list", metavar="ID", nargs="?", const="root")
     group.add_argument("-t", "--tree", metavar="ID", nargs="?", const="root")
+    group.add_argument("-U", "--no-sort", action="store_false", dest="sort")
     group.add_argument("-f", "--find", metavar="PATTERN")
     group.add_argument("-i", "--ignore-case", action="store_true")
 
@@ -616,9 +625,9 @@ def main():
 
     if args.tree:
         if args.tree == "root":
-            tree_items(token)
+            tree_items(token, None, args.sort)
         else:
-            tree_items(token, args.tree)
+            tree_items(token, args.tree, args.sort)
         return
 
     if args.find:
