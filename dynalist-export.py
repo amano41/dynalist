@@ -102,7 +102,7 @@ def list_items(token: str, root_id: Optional[str] = None, sort: bool = False, ou
             for child in children:
                 _list(child, sort, output)
         else:
-            _error(f"Unknown type: {item.type}: {item.id}")
+            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
     try:
         item = _fetch_item(token, root_id)
@@ -157,29 +157,38 @@ def tree_items(token: str, root_id: Optional[str] = None, sort: bool = False, ou
         for index, child in enumerate(children):
             _tree(child, "", index == num - 1, sort, output)
     else:
-        _error(f"Unknown type: {item.type}: {item.id}")
+        _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
 
-def find_item(token: str, pattern: str, ignore_case: bool = False, output: TextIO = sys.stdout) -> None:
+def find_item(token: str, pattern: str, ignore_case: bool = False, sort: bool = False, output: TextIO = sys.stdout):
+    """display items whose names match the pattern with their IDs"""
 
-    item = _fetch_item(token)
+    def _find(item: Item, pattern: Pattern, sort: bool, output: TextIO):
+        if pattern.search(item.path.name):
+            if item.type == "document":
+                output.write(f"{item.path} [{item.id}]\n")
+            elif item.type == "folder":
+                output.write(f"{item.path}/ [{item.id}]\n")
+            else:
+                _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
+        if item.type == "folder":
+            if sort:
+                children = sorted(item.children, key=lambda x: x.path)
+            else:
+                children = item.children
+            for child in children:
+                _find(child, pattern, sort, output)
 
-    if not item:
+    try:
+        item = _fetch_item(token)
+    except Exception as e:
+        _error(str(e))
         return
 
-    def _find_item(item: Item, pattern: Pattern):
-
-        if pattern.search(item.path.name):
-            output.write(f"{item.path}\t{item.id}\n")
-
-        if item.type == "folder":
-            for child in item.children:
-                _find_item(child, pattern)
-
     if ignore_case:
-        _find_item(item, re.compile(pattern, re.IGNORECASE))
+        _find(item, re.compile(pattern, re.IGNORECASE), sort, output)
     else:
-        _find_item(item, re.compile(pattern))
+        _find(item, re.compile(pattern), sort, output)
 
 
 def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
@@ -628,7 +637,7 @@ def main():
         return
 
     if args.find:
-        find_item(token, args.find, args.ignore_case)
+        find_item(token, args.find, args.ignore_case, args.sort)
         return
 
     if args.export:
