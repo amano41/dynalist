@@ -35,41 +35,51 @@ def _fetch_item_list(token: str) -> dict:
     return json_data
 
 
-def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
+def _build_item_tree(json_data: dict, root_id: str) -> Item:
+    """build a tree structure from a list of items in json data"""
 
-    try:
-        json_data = _fetch_item_list(token)
-    except Exception:
-        raise
-
-    item_table = {x["id"]: x for x in json_data["files"]}
-
-    root_item = item_table[json_data["root_file_id"]]
-    root_item["title"] = "/"
-
-    def _make_item(item_id: str, item_table: dict[str, dict], parent_path: PurePosixPath) -> Optional[Item]:
+    def _create_node(item_id: str, item_table: dict, parent_path: PurePosixPath) -> Item:
 
         if item_id not in item_table:
-            _error("Item not found: {item_id}")
-            return None
+            raise RuntimeError(f"Invalid item ID: {root_id}")
 
-        data = item_table[item_id]
-        path = parent_path.joinpath(data["title"])
+        entry = item_table[item_id]
 
-        item = Item(data["id"], data["type"], path)
+        path = parent_path.joinpath(entry["title"])
+        item = Item(entry["id"], entry["type"], path)
 
-        if "children" in data:
-            for child_id in data["children"]:
-                child_item = _make_item(child_id, item_table, path)
-                if child_item:
-                    item.children.append(child_item)
+        if "children" in entry:
+            for child in entry["children"]:
+                try:
+                    child_item = _create_node(child, item_table, path)
+                except Exception as e:
+                    _error(str(e))
+                    continue
+                item.children.append(child_item)
 
         return item
 
-    if root_id:
-        item = _make_item(root_id, item_table, PurePosixPath())
-    else:
-        item = _make_item(json_data["root_file_id"], item_table, PurePosixPath())
+    item_table = {x["id"]: x for x in json_data["files"]}
+    item_table[json_data["root_file_id"]]["title"] = "/"
+
+    try:
+        item = _create_node(root_id, item_table, PurePosixPath())
+    except Exception:
+        raise
+    return item
+
+
+def _fetch_item(token: str, root_id: Optional[str] = None) -> Item:
+    """fetch a document or folder and its descendants as an item tree"""
+
+    try:
+        json_data = _fetch_item_list(token)
+        if root_id:
+            item = _build_item_tree(json_data, root_id)
+        else:
+            item = _build_item_tree(json_data, json_data["root_file_id"])
+    except Exception:
+        raise
 
     return item
 
