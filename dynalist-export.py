@@ -84,26 +84,23 @@ def _fetch_item(token: str, root_id: Optional[str] = None) -> Item:
     return item
 
 
-def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout):
-    """list the specified item and its descendants with their IDs"""
+def list_items(token: str, root_id: Optional[str] = None, sort: bool = False, output: TextIO = sys.stdout):
+    """display a list of items with their IDs"""
 
-    def _write_item(item: Item, indent_level: int = 0, output: TextIO = sys.stdout):
-
-        if str(item.path) == "/":
-            title = "/"
-        else:
-            title = item.path.name
-
-        indent = "\t" * indent_level
-
+    def _list(item: Item, sort: bool, output: TextIO):
         if item.type == "document":
-            output.write(f"{indent}{title} ({item.id})\n")
-
+            output.write(f"{item.path} [{item.id}]\n")
         elif item.type == "folder":
-            output.write(f"{indent}[{title}] ({item.id})\n")
-            for child_node in item.children:
-                _write_item(child_node, indent_level + 1, output)
-
+            if str(item.path) == "/":
+                output.write(f"{item.path} [{item.id}]\n")
+            else:
+                output.write(f"{item.path}/ [{item.id}]\n")
+            if sort:
+                children = sorted(item.children, key=lambda x: x.path)
+            else:
+                children = item.children
+            for child in children:
+                _list(child, sort, output)
         else:
             _error(f"Unknown type: {item.type}: {item.id}")
 
@@ -113,7 +110,7 @@ def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
         _error(str(e))
         return
 
-    _write_item(item, 0, output)
+    _list(item, sort, output)
 
 
 def tree_items(token: str, root_id: Optional[str] = None, sort: bool = False, output: TextIO = sys.stdout):
@@ -618,9 +615,9 @@ def main():
 
     if args.list:
         if args.list == "root":
-            list_items(token)
+            list_items(token, None, args.sort)
         else:
-            list_items(token, args.list)
+            list_items(token, args.list, args.sort)
         return
 
     if args.tree:
