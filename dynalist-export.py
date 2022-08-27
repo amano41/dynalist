@@ -116,6 +116,45 @@ def list_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.s
     _write_item(item, 0, output)
 
 
+def tree_items(token: str, root_id: Optional[str] = None, output: TextIO = sys.stdout):
+    """display a tree of items with their IDs"""
+
+    def _tree(item: Item, indent: str, last_child: bool, output: TextIO):
+        if last_child:
+            branch = "└─"
+        else:
+            branch = "├─"
+        if item.type == "document":
+            output.write(f"{indent}{branch} {item.path.name} [{item.id}]\n")
+        elif item.type == "folder":
+            output.write(f"{indent}{branch} {item.path.name}/ [{item.id}]\n")
+            if last_child:
+                indent = indent + "　　"
+            else:
+                indent = indent + "│　"
+            num = len(item.children)
+            for index, child in enumerate(item.children):
+                _tree(child, indent, index == num - 1, output)
+        else:
+            _error(f"Unknown type: {item.type}: {item.id}")
+
+    try:
+        item = _fetch_item(token, root_id)
+    except Exception as e:
+        _error(str(e))
+        return
+
+    if item.type == "document":
+        output.write(f"{item.path.name} [{item.id}]\n")
+    elif item.type == "folder":
+        output.write(f"{item.path.name}/ [{item.id}]\n")
+        num = len(item.children)
+        for index, child in enumerate(item.children):
+            _tree(child, "", index == num - 1, output)
+    else:
+        _error(f"Unknown type: {item.type}: {item.id}")
+
+
 def find_item(token: str, pattern: str, ignore_case: bool = False, output: TextIO = sys.stdout) -> None:
 
     item = _fetch_item(token)
@@ -489,7 +528,7 @@ def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-t", "--token")
+    parser.add_argument("-T", "--token")
 
     group = parser.add_argument_group("exporting", "export a single document or by a folder")
     group.add_argument("-e", "--export", metavar="ID")
@@ -497,6 +536,7 @@ def _parse_args() -> argparse.Namespace:
 
     group = parser.add_argument_group("querying", "retrieve a list of items or search for items")
     group.add_argument("-l", "--list", metavar="ID", nargs="?", const="root")
+    group.add_argument("-t", "--tree", metavar="ID", nargs="?", const="root")
     group.add_argument("-f", "--find", metavar="PATTERN")
     group.add_argument("-i", "--ignore-case", action="store_true")
 
@@ -567,15 +607,22 @@ def main():
             print(e)
             return
 
-    if args.find:
-        find_item(token, args.find, args.ignore_case)
-        return
-
     if args.list:
         if args.list == "root":
             list_items(token)
         else:
             list_items(token, args.list)
+        return
+
+    if args.tree:
+        if args.tree == "root":
+            tree_items(token)
+        else:
+            tree_items(token, args.tree)
+        return
+
+    if args.find:
+        find_item(token, args.find, args.ignore_case)
         return
 
     if args.export:
