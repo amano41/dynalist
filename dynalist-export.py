@@ -24,14 +24,23 @@ class Item:
     children: list = field(default_factory=list)
 
 
-def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
+def _fetch_item_list(token: str) -> dict:
+    """fetch list of all documents and folders"""
 
     d = Dynalist(token)
     try:
         json_data = d.list_files()
-    except Exception as e:
-        _error(str(e))
-        return None
+    except Exception:
+        raise
+    return json_data
+
+
+def _fetch_item(token: str, root_id: Optional[str] = None) -> Optional[Item]:
+
+    try:
+        json_data = _fetch_item_list(token)
+    except Exception:
+        raise
 
     item_table = {x["id"]: x for x in json_data["files"]}
 
@@ -259,12 +268,10 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
 
 def export(token: str, item_id: str, dest_path: Union[str, PathLike] = "") -> None:
 
-    d = Dynalist(token)
     try:
-        json_data = d.list_files()
-    except Exception as e:
-        _error(str(e))
-        return
+        json_data = _fetch_item_list(token)
+    except Exception:
+        raise
 
     for item in json_data["files"]:
         if item["id"] == item_id:
