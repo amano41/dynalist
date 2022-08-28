@@ -540,6 +540,45 @@ def update(token: str):
     _save_settings(settings)
 
 
+def _load_token() -> str:
+    """load API token from file or environment variable"""
+
+    # プロジェクトの設定ファイル
+    try:
+        settings = _load_settings()
+    except FileNotFoundError:
+        pass
+    else:
+        if "token" in settings:
+            return settings["token"]
+
+    # 環境変数
+    token = os.getenv("DYNALIST_TOKEN")
+    if token:
+        return token
+
+    def _read_token(path: Path) -> Optional[str]:
+        if not path.exists():
+            return None
+        with path.open("r", encoding="utf-8") as f:
+            token = f.readline().strip()
+        return token
+
+    # 作業ディレクトリの設定ファイル
+    p = Path.cwd().joinpath(".dynalistrc")
+    token = _read_token(p)
+    if token:
+        return token
+
+    # ホームディレクトリの設定ファイル
+    p = Path.home().joinpath(".dynalistrc")
+    token = _read_token(p)
+    if token:
+        return token
+
+    raise RuntimeError("API token not found.")
+
+
 def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
@@ -562,44 +601,6 @@ def _parse_args() -> argparse.Namespace:
     group.add_argument("-u", "--update", action="store_true")
 
     return parser.parse_args()
-
-
-def _load_token() -> str:
-
-    # プロジェクトの設定ファイル
-    try:
-        settings = _load_settings()
-    except FileNotFoundError:
-        settings = None
-
-    if settings and "token" in settings:
-        return settings["token"]
-
-    # 環境変数
-    token = os.getenv("DYNALIST_TOKEN")
-    if token:
-        return token
-
-    def _read_token(file_path: Path) -> Optional[str]:
-        if not file_path.exists():
-            return None
-        with file_path.open("r", encoding="utf-8") as f:
-            token = f.readline().strip()
-        return token
-
-    # 作業ディレクトリの設定ファイル
-    p = Path.cwd().joinpath(".dynalistrc")
-    token = _read_token(p)
-    if token:
-        return token
-
-    # ホームディレクトリの設定ファイル
-    p = Path.home().joinpath(".dynalistrc")
-    token = _read_token(p)
-    if token:
-        return token
-
-    raise RuntimeError("API token not found.")
 
 
 def _error(message: str) -> None:
