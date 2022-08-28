@@ -274,15 +274,15 @@ def _write_document(json_data: dict, root_node: bool = False, output: TextIO = s
     output.write(OPML_TAIL)
 
 
-def export_document(
-    token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = ""
-) -> None:
+def export_document(token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = ""):
+    """export a document in OPML format"""
 
     d = Dynalist(token)
     try:
         json_data = d.read_doc(document_id)
-    except Exception:
-        raise
+    except Exception as e:
+        _error(str(e))
+        return
 
     if dest_file == "-":
         _write_document(json_data, root_node, sys.stdout)
