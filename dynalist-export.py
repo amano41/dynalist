@@ -412,7 +412,7 @@ def _fetch_status(token: str, root_id: str) -> dict:
     return status
 
 
-def status(token: str, output: TextIO = sys.stdout):
+def status(token: str, sort: bool = False, output: TextIO = sys.stdout):
     """check for updates to project documents"""
 
     try:
@@ -432,6 +432,10 @@ def status(token: str, output: TextIO = sys.stdout):
         return
     if not remote_status:
         remote_status = dict()
+
+    if sort:
+        local_status = dict(sorted(local_status.items(), key=lambda x: x[1]["path"]))
+        remote_status = dict(sorted(remote_status.items(), key=lambda x: x[1]["path"]))
 
     # 辞書のキー（dict_key）は並び順が保持されている
     local_items = local_status.keys()
@@ -644,7 +648,7 @@ def main():
             export(token, args.export)
 
     if args.status:
-        status(token)
+        status(token, args.sort)
 
     if args.update:
         update(token)
