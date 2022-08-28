@@ -297,7 +297,21 @@ def export_document(token: str, document_id: str, root_node: bool = False, dest_
         _write_document(json_data, root_node, f)
 
 
-def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "") -> None:
+def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = ""):
+    """export by a folder"""
+
+    def _export_item(item: Item, parent: Path):
+        if item.type == "document":
+            path = parent.joinpath(item.path.name + ".opml")
+            export_document(token, item.id, False, path)
+        elif item.type == "folder":
+            path = parent.joinpath(item.path.name)
+            if not path.exists():
+                path.mkdir()
+            for child in item.children:
+                _export_item(child, path)
+        else:
+            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
     dest_path = Path(dest_dir)
 
@@ -307,32 +321,15 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
         _error(f"Not a directory: {dest_path}")
         return
 
-    item = _fetch_item(token, folder_id)
-
-    if not item:
-        _error(f"Item not found: {folder_id}")
+    try:
+        item = _fetch_item(token, folder_id)
+    except Exception as e:
+        _error(str(e))
         return
 
     if item.type != "folder":
-        _error(f"Not a folder: {folder_id}")
+        _error(f"Not a folder: {item.path} [{item.id}]")
         return
-
-    def _export_item(item: Item, parent: Path):
-
-        if item.type == "document":
-            p = parent.joinpath(item.path.name + ".opml")
-            export_document(token, item.id, False, p)
-
-        elif item.type == "folder":
-            p = parent.joinpath(item.path.name)
-            if not p.exists():
-                p.mkdir()
-            for c in item.children:
-                _export_item(c, p)
-
-        else:
-            _error(f"Unknown type: {item.type}: {item.id}")
-            return
 
     for child in item.children:
         _export_item(child, dest_path)
