@@ -335,27 +335,28 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
         _export_item(child, dest_path)
 
 
-def export(token: str, item_id: str, dest_path: Union[str, PathLike] = "") -> None:
+def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
+    """export a single document or by a folder"""
 
     try:
         json_data = _fetch_item_list(token)
-    except Exception:
-        raise
+    except Exception as e:
+        _error(str(e))
+        return
 
     for item in json_data["files"]:
         if item["id"] == item_id:
             item_type = item["type"]
             break
     else:
-        _error(f"Item not found: {item_id}")
-        return
+        raise RuntimeError(f"Invalid item ID: {item_id}")
 
     if item_type == "document":
         export_document(token, item_id, False, dest_path)
     elif item_type == "folder":
         export_folder(token, item_id, dest_path)
     else:
-        _error(f"Unknown type: {item_type}: {item_id}")
+        _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
 
 def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
