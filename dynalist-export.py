@@ -412,20 +412,24 @@ def _fetch_status(token: str, root_id: str) -> dict:
     return status
 
 
-def status(token: str, output: TextIO = sys.stdout) -> None:
+def status(token: str, output: TextIO = sys.stdout):
+    """check for updates to project documents"""
 
     try:
         settings = _load_settings()
     except FileNotFoundError as e:
         _error(str(e))
         return
-
     if "status" in settings:
         local_status = settings["status"]
     else:
         local_status = dict()
 
-    remote_status = _fetch_status(token, settings["root"])
+    try:
+        remote_status = _fetch_status(token, settings["root"])
+    except Exception as e:
+        _error(str(e))
+        return
     if not remote_status:
         remote_status = dict()
 
@@ -442,52 +446,48 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
     same_version_items = []
     replace_existing = []
 
-    for id in remote_items:
-
-        if id not in local_items:
-            remote_only_items.append(id)
+    for i in remote_items:
+        if i not in local_items:
+            remote_only_items.append(i)
             continue
-
-        lv = local_status[id]["version"]
-        rv = remote_status[id]["version"]
+        lv = local_status[i]["version"]
+        rv = remote_status[i]["version"]
         if lv > rv:
-            local_newer_items.append(id)
+            local_newer_items.append(i)
         elif lv < rv:
-            remote_newer_items.append(id)
+            remote_newer_items.append(i)
         else:
-            same_version_items.append(id)
+            same_version_items.append(i)
 
-    for id in local_items:
-
-        if id not in remote_items:
-            local_only_items.append(id)
-
-        lp = local_status[id]["path"]
+    for i in local_items:
+        if i not in remote_items:
+            local_only_items.append(i)
+        lp = local_status[i]["path"]
         for r in remote_status:
             rp = remote_status[r]["path"]
-            if lp == rp and id != r:
+            if lp == rp and i != r:
                 replace_existing.append(r)
 
-    def _write_items(heading: str, item_ids: list[str]):
+    def _write_items(heading: str, item_ids: list):
 
         output.write(f"{heading}:\n\n")
 
-        for id in item_ids:
+        for i in item_ids:
 
-            if id in local_status:
-                lp = local_status[id]["path"]
+            if i in local_status:
+                lp = local_status[i]["path"]
                 output.write(f"\t{lp}")
 
-                if id in remote_status:
-                    rp = remote_status[id]["path"]
+                if i in remote_status:
+                    rp = remote_status[i]["path"]
                     if lp != rp:
                         output.write(f" => {rp}")
 
-            elif id in remote_status:
-                rp = remote_status[id]["path"]
+            elif i in remote_status:
+                rp = remote_status[i]["path"]
                 output.write(f"\t{rp}")
 
-            if id in replace_existing:
+            if i in replace_existing:
                 output.write(" *")
 
             output.write("\n")
