@@ -191,51 +191,53 @@ def find_item(token: str, pattern: str, ignore_case: bool = False, sort: bool = 
         _find(item, re.compile(pattern), sort, output)
 
 
-def _write_node(node_id: str, node_table: dict[str, dict], indent_level: int = 0, output: TextIO = sys.stdout) -> None:
+def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: TextIO = sys.stdout):
+    """output a document node as an OPML element"""
 
     if node_id not in node_table:
-        _error(f"Node not found: {node_id}")
-        return
+        raise RuntimeError(f"Invalid node ID: {node_id}")
 
     node = node_table[node_id]
 
-    tag = "outline"
-    items = [tag]
+    name = "outline"
+    parts = [name]
 
     if "content" in node:
         text = html.escape(node["content"])
-        items.append(f'text="{text}"')
+        parts.append(f'text="{text}"')
 
     if "note" in node and node["note"]:
         note = html.escape(node["note"])
-        items.append(f'_note="{note}"')
+        parts.append(f'_note="{note}"')
 
     if "checkbox" in node and node["checkbox"]:
-        items.append('checkbox="true"')
+        parts.append('checkbox="true"')
 
     if "checked" in node and node["checked"]:
-        items.append('complete="true"')
+        parts.append('complete="true"')
 
     if "color" in node and node["color"] != 0:
         color = node["color"]
-        items.append(f'colorLabel="{color}"')
+        parts.append(f'colorLabel="{color}"')
 
     if "numbered" in node and node["numbered"]:
-        items.append('listStyle="arabic"')
+        parts.append('listStyle="arabic"')
 
     if "collapsed" in node and node["collapsed"]:
-        items.append('collapsed="true"')
+        parts.append('collapsed="true"')
 
-    elem = " ".join(items)
     indent = "\t" * indent_level
 
     if "children" in node:
-        output.write(indent + "<" + elem + ">\n")
+        s = "<" + " ".join(parts) + ">"
+        e = "</" + name + ">"
+        output.write(indent + s + "\n")
         for c in node["children"]:
             _write_node(c, node_table, indent_level + 1, output)
-        output.write(indent + "</" + tag + ">\n")
+        output.write(indent + e + "\n")
     else:
-        output.write(indent + "<" + elem + "/>\n")
+        e = "<" + " ".join(parts) + "/>"
+        output.write(indent + e + "\n")
 
 
 def _write_document(json_data: dict, root_node: bool = False, output: TextIO = sys.stdout) -> None:
