@@ -514,7 +514,8 @@ def status(token: str, sort: bool = False, output: TextIO = sys.stdout):
         _write_items("No Changes", same_version_items)
 
 
-def update(token: str) -> None:
+def update(token: str):
+    """update all documents in the project"""
 
     try:
         settings = _load_settings()
