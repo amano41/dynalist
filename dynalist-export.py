@@ -378,42 +378,36 @@ def _save_settings(json_data: dict):
         json.dump(json_data, f, indent=2, ensure_ascii=False)
 
 
-def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
+def _fetch_status(token: str, root_id: str) -> dict:
+    """fetch latest version number information"""
 
-    root_item = _fetch_item(token, root_id)
-
-    if not root_item:
-        _error(f"Folder not found on Dynalist: {root_id}")
-        return None
-
-    def _collect_document_id_path(item: Item):
+    def _collect_documents(item: Item):
         if item.type == "document":
-            yield item.id, item.path
+            yield item
         elif item.type == "folder":
             for child in item.children:
-                for i, p in _collect_document_id_path(child):
-                    yield i, p
+                yield from _collect_documents(child)
         else:
-            _error(f"Unknown type: {item.type}: {item.id}")
+            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
-    # document_id -> path の dict
-    paths = {}
-    for i, p in _collect_document_id_path(root_item):
-        paths[i] = str(p.relative_to(root_item.path))
+    try:
+        root_item = _fetch_item(token, root_id)
+    except Exception:
+        raise
 
-    document_ids = list(paths.keys())
+    status = {}
+    for doc in _collect_documents(root_item):
+        status[doc.id] = {"path": str(doc.path.relative_to(root_item.path))}
 
-    # document_id -> version の dict
+    document_ids = list(status.keys())
+
     d = Dynalist(token)
     try:
         json_data = d.check_for_updates(document_ids)
     except Exception:
         raise
-    versions = json_data["versions"]
-
-    status = {}
     for i in document_ids:
-        status[i] = {"path": paths[i], "version": versions[i]}
+        status[i]["version"] = json_data["versions"][i]
 
     return status
 
@@ -431,7 +425,7 @@ def status(token: str, output: TextIO = sys.stdout) -> None:
     else:
         local_status = dict()
 
-    remote_status = _get_remote_status(token, settings["root"])
+    remote_status = _fetch_status(token, settings["root"])
     if not remote_status:
         remote_status = dict()
 
@@ -537,7 +531,7 @@ def update(token: str) -> None:
 
     export_folder(token, root_id, dest_dir)
 
-    settings["status"] = _get_remote_status(token, root_id)
+    settings["status"] = _fetch_status(token, root_id)
     _save_settings(settings)
 
 
