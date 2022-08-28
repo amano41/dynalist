@@ -301,21 +301,18 @@ def export_document(token: str, document_id: str, root_node: bool = False, dest_
         _write_document(json_data, root_node, f)
 
 
+def _collect_documents(item: Item):
+    if item.type == "document":
+        yield item
+    elif item.type == "folder":
+        for child in item.children:
+            yield from _collect_documents(child)
+    else:
+        _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
+
+
 def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = ""):
     """export by a folder"""
-
-    def _export_item(item: Item, parent: Path):
-        if item.type == "document":
-            path = parent.joinpath(item.path.name + ".opml")
-            export_document(token, item.id, False, path)
-        elif item.type == "folder":
-            path = parent.joinpath(item.path.name)
-            if not path.exists():
-                path.mkdir()
-            for child in item.children:
-                _export_item(child, path)
-        else:
-            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
     dest_path = Path(dest_dir)
 
@@ -335,8 +332,10 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
         _error(f"Not a folder: {item.path} [{item.id}]")
         return
 
-    for child in item.children:
-        _export_item(child, dest_path)
+    for doc in _collect_documents(item):
+        path = dest_path.joinpath(str(doc.path.relative_to(item.path)) + ".opml")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        export_document(token, doc.id, False, path)
 
 
 def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
@@ -384,15 +383,6 @@ def _save_settings(json_data: dict):
 
 def _fetch_status(token: str, root_id: str) -> dict:
     """fetch latest version number information"""
-
-    def _collect_documents(item: Item):
-        if item.type == "document":
-            yield item
-        elif item.type == "folder":
-            for child in item.children:
-                yield from _collect_documents(child)
-        else:
-            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
     try:
         root_item = _fetch_item(token, root_id)
