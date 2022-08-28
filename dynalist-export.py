@@ -141,7 +141,7 @@ def tree_items(token: str, root_id: Optional[str] = None, sort: bool = False, ou
             for index, child in enumerate(children):
                 _tree(child, indent, index == num - 1, sort, output)
         else:
-            _error(f"Unknown type: {item.type}: {item.id}")
+            _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
     try:
         item = _fetch_item(token, root_id)
@@ -617,7 +617,7 @@ def main():
         try:
             token = _load_token()
         except Exception as e:
-            print(e)
+            _error(str(e))
             return
 
     if args.list:
