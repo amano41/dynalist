@@ -359,6 +359,25 @@ def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
         _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
 
+def _load_settings() -> dict:
+    """load project settings from JSON file in the current directory"""
+
+    p = Path.cwd().joinpath(".dynalist.json")
+    if not p.exists():
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), p)
+    with p.open("r", encoding="utf-8") as f:
+        settings = json.load(f)
+    return settings
+
+
+def _save_settings(json_data: dict):
+    """save project settings to JSON file in the current directory"""
+
+    p = Path.cwd().joinpath(".dynalist.json")
+    with p.open("w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+
 def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
 
     root_item = _fetch_item(token, root_id)
@@ -397,27 +416,6 @@ def _get_remote_status(token: str, root_id: str) -> Optional[dict[str, dict]]:
         status[i] = {"path": paths[i], "version": versions[i]}
 
     return status
-
-
-def _load_settings() -> dict:
-
-    p = Path.cwd().joinpath(".dynalist.json")
-
-    if not p.exists():
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), p)
-
-    with p.open("r", encoding="utf-8") as f:
-        settings = json.load(f)
-
-    return settings
-
-
-def _save_settings(json_data: dict) -> None:
-
-    p = Path.cwd().joinpath(".dynalist.json")
-
-    with p.open("w", encoding="utf-8") as f:
-        json.dump(json_data, f, indent=2, ensure_ascii=False)
 
 
 def status(token: str, output: TextIO = sys.stdout) -> None:
