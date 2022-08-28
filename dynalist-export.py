@@ -24,6 +24,10 @@ class Item:
     children: list = field(default_factory=list)
 
 
+def _error(message: str):
+    print("error: " + message, file=sys.stderr)
+
+
 def _fetch_item_list(token: str) -> dict:
     """fetch list of all documents and folders"""
 
@@ -601,15 +605,6 @@ def _parse_args() -> argparse.Namespace:
     group.add_argument("-u", "--update", action="store_true")
 
     return parser.parse_args()
-
-
-def _error(message: str) -> None:
-    print("error: " + message, file=sys.stderr)
-
-
-def _abort(message: str) -> None:
-    _error(message)
-    sys.exit(1)
 
 
 def main():
