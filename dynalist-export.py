@@ -240,8 +240,10 @@ def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: T
         output.write(indent + e + "\n")
 
 
-def _write_document(json_data: dict, root_node: bool = False, output: TextIO = sys.stdout) -> None:
+def _write_document(json_data: dict, root_node: bool = False, output: TextIO = sys.stdout):
+    """output a document in OPML fromat"""
 
+    # fmt: off
     OPML_HEAD: Final[str] = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<opml version="2.0">\n'
@@ -253,19 +255,22 @@ def _write_document(json_data: dict, root_node: bool = False, output: TextIO = s
         "\t<body>\n"
     )
 
-    OPML_TAIL: Final[str] = "\t</body>\n</opml>\n"
-
-    output.write(OPML_HEAD.format(json_data["title"]))
+    OPML_TAIL: Final[str] = (
+        "\t</body>\n"
+        "</opml>\n"
+    )
+    # fmt: on
 
     node_table = {x["id"]: x for x in json_data["nodes"]}
+
+    output.write(OPML_HEAD.format(json_data["title"]))
     if root_node:
         _write_node("root", node_table, 2, output)
     else:
-        root = node_table["root"]
-        if "children" in root:
-            for child_id in root["children"]:
+        node = node_table["root"]
+        if "children" in node:
+            for child_id in node["children"]:
                 _write_node(child_id, node_table, 2, output)
-
     output.write(OPML_TAIL)
 
 
