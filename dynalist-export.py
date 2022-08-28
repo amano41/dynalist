@@ -643,12 +643,15 @@ def main():
             export(token, args.export, args.out)
         else:
             export(token, args.export)
+        return
 
     if args.status:
         status(token, args.sort)
+        return
 
     if args.update:
         update(token)
+        return
 
 
 if __name__ == "__main__":
