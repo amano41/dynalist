@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path, PurePosixPath
 from re import Pattern
+from time import sleep
 from typing import Final, Optional, TextIO, Union
 
 from dynalist import Dynalist
@@ -332,10 +333,16 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
         _error(f"Not a folder: {item.path} [{item.id}]")
         return
 
-    for doc in _collect_documents(item):
-        path = dest_path.joinpath(str(doc.path.relative_to(item.path)) + ".opml")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        export_document(token, doc.id, False, path)
+    documents = list(_collect_documents(item))
+    num = len(documents)
+    limit = 20  # rate limit for doc/read: 30 times per minute
+    for i in range(0, num, limit):
+        for doc in documents[i : i + limit]:
+            path = dest_path.joinpath(str(doc.path.relative_to(item.path)) + ".opml")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            export_document(token, doc.id, False, path)
+        if i + limit < num:
+            sleep(60)
 
 
 def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
