@@ -3,7 +3,6 @@ Wrapper class for Dyanlist API
 """
 
 import json
-import sys
 from typing import Final, Literal, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -28,15 +27,13 @@ class Dynalist:
             with urlopen(request) as response:
                 body = response.read().decode("utf-8")
                 result = json.loads(body)
-        except HTTPError as e:
-            print(f"error: HTTP {e.code} {e.reason}", file=sys.stderr)
+        except HTTPError:
             raise
-        except URLError as e:
-            print(f"error: {e.reason}", file=sys.stderr)
+        except URLError:
             raise
 
         if result["_code"].lower() != "ok":
-            print(f"error: {result['_msg']}", file=sys.stderr)
+            raise RuntimeError(result["_msg"])
 
         return result
 
