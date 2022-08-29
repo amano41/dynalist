@@ -2,7 +2,6 @@
 
 import argparse
 import errno
-import html
 import json
 import os
 import re
@@ -199,6 +198,18 @@ def find_item(token: str, pattern: str, ignore_case: bool = False, sort: bool = 
 def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: TextIO = sys.stdout):
     """output a document node as an OPML element"""
 
+    # fmt: off
+    def _escape(text: str):
+        table = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '\"': '&quot;',
+            '\'': '&apos;'
+        }
+        return text.translate(str.maketrans(table))
+    # fmt: on
+
     if node_id not in node_table:
         raise RuntimeError(f"Invalid node ID: {node_id}")
 
@@ -208,11 +219,11 @@ def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: T
     parts = [name]
 
     if "content" in node:
-        text = html.escape(node["content"])
+        text = _escape(node["content"])
         parts.append(f'text="{text}"')
 
     if "note" in node and node["note"]:
-        note = html.escape(node["note"])
+        note = _escape(node["note"])
         parts.append(f'_note="{note}"')
 
     if "checkbox" in node and node["checkbox"]:
