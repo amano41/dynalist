@@ -628,7 +628,7 @@ def _load_token() -> str:
     raise RuntimeError("API token not found.")
 
 
-def _parse_args() -> argparse.Namespace:
+def _argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser()
 
@@ -651,12 +651,13 @@ def _parse_args() -> argparse.Namespace:
     group.add_argument("-s", "--status", action="store_true")
     group.add_argument("-u", "--update", action="store_true")
 
-    return parser.parse_args()
+    return parser
 
 
 def main():
 
-    args = _parse_args()
+    parser = _argument_parser()
+    args = parser.parse_args()
 
     if args.token:
         token = args.token
@@ -699,6 +700,8 @@ def main():
     if args.update:
         update(token)
         return
+
+    parser.print_usage()
 
 
 if __name__ == "__main__":
