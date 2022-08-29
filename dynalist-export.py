@@ -333,7 +333,7 @@ def export_document(
     else:
         p = Path(dest_file)
 
-    with p.open("w", encoding="utf-8") as f:
+    with p.open("w", encoding="utf-8", newline="\n") as f:
         _write_document(json_data, root_node, with_format, with_state, f)
 
 
@@ -433,7 +433,7 @@ def _save_settings(json_data: dict):
     """save project settings to JSON file in the current directory"""
 
     p = Path.cwd().joinpath(".dynalist.json")
-    with p.open("w", encoding="utf-8") as f:
+    with p.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
 
 
