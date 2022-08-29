@@ -195,7 +195,14 @@ def find_item(token: str, pattern: str, ignore_case: bool = False, sort: bool = 
         _find(item, re.compile(pattern), sort, output)
 
 
-def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: TextIO = sys.stdout):
+def _write_node(
+    node_id: str,
+    node_table: dict,
+    indent_level: int = 0,
+    with_format: bool = False,
+    with_state: bool = False,
+    output: TextIO = sys.stdout,
+):
     """output a document node as an OPML element"""
 
     # fmt: off
@@ -226,21 +233,25 @@ def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: T
         note = _escape(node["note"])
         parts.append(f'_note="{note}"')
 
-    if "checkbox" in node and node["checkbox"]:
-        parts.append('checkbox="true"')
+    if with_format:
 
-    if "checked" in node and node["checked"]:
-        parts.append('complete="true"')
+        if "checkbox" in node and node["checkbox"]:
+            parts.append('checkbox="true"')
 
-    if "color" in node and node["color"] != 0:
-        color = node["color"]
-        parts.append(f'colorLabel="{color}"')
+        if "checked" in node and node["checked"]:
+            parts.append('complete="true"')
 
-    if "numbered" in node and node["numbered"]:
-        parts.append('listStyle="arabic"')
+        if "color" in node and node["color"] != 0:
+            color = node["color"]
+            parts.append(f'colorLabel="{color}"')
 
-    if "collapsed" in node and node["collapsed"]:
-        parts.append('collapsed="true"')
+        if "numbered" in node and node["numbered"]:
+            parts.append('listStyle="arabic"')
+
+    if with_state:
+
+        if "collapsed" in node and node["collapsed"]:
+            parts.append('collapsed="true"')
 
     indent = "\t" * indent_level
 
@@ -249,14 +260,20 @@ def _write_node(node_id: str, node_table: dict, indent_level: int = 0, output: T
         e = "</" + name + ">"
         output.write(indent + s + "\n")
         for c in node["children"]:
-            _write_node(c, node_table, indent_level + 1, output)
+            _write_node(c, node_table, indent_level + 1, with_format, with_state, output)
         output.write(indent + e + "\n")
     else:
         e = "<" + " ".join(parts) + "/>"
         output.write(indent + e + "\n")
 
 
-def _write_document(json_data: dict, root_node: bool = False, output: TextIO = sys.stdout):
+def _write_document(
+    json_data: dict,
+    root_node: bool = False,
+    with_format: bool = False,
+    with_state: bool = False,
+    output: TextIO = sys.stdout,
+):
     """output a document in OPML fromat"""
 
     # fmt: off
@@ -281,16 +298,23 @@ def _write_document(json_data: dict, root_node: bool = False, output: TextIO = s
 
     output.write(OPML_HEAD.format(json_data["title"]))
     if root_node:
-        _write_node("root", node_table, 2, output)
+        _write_node("root", node_table, 2, with_format, with_state, output)
     else:
         node = node_table["root"]
         if "children" in node:
             for child_id in node["children"]:
-                _write_node(child_id, node_table, 2, output)
+                _write_node(child_id, node_table, 2, with_format, with_state, output)
     output.write(OPML_TAIL)
 
 
-def export_document(token: str, document_id: str, root_node: bool = False, dest_file: Union[str, PathLike] = ""):
+def export_document(
+    token: str,
+    document_id: str,
+    root_node: bool = False,
+    with_format: bool = False,
+    with_state: bool = False,
+    dest_file: Union[str, PathLike] = "",
+):
     """export a document in OPML format"""
 
     d = Dynalist(token)
@@ -301,7 +325,7 @@ def export_document(token: str, document_id: str, root_node: bool = False, dest_
         return
 
     if dest_file == "-":
-        _write_document(json_data, root_node, sys.stdout)
+        _write_document(json_data, root_node, with_format, with_state, sys.stdout)
         return
 
     if dest_file == "":
@@ -310,7 +334,7 @@ def export_document(token: str, document_id: str, root_node: bool = False, dest_
         p = Path(dest_file)
 
     with p.open("w", encoding="utf-8") as f:
-        _write_document(json_data, root_node, f)
+        _write_document(json_data, root_node, with_format, with_state, f)
 
 
 def _collect_documents(item: Item):
@@ -323,7 +347,14 @@ def _collect_documents(item: Item):
         _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
 
-def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = ""):
+def export_folder(
+    token: str,
+    folder_id: str,
+    root_node: bool = False,
+    with_format: bool = False,
+    with_state: bool = False,
+    dest_dir: Union[str, PathLike] = "",
+):
     """export by a folder"""
 
     dest_path = Path(dest_dir)
@@ -351,12 +382,19 @@ def export_folder(token: str, folder_id: str, dest_dir: Union[str, PathLike] = "
         for doc in documents[i : i + limit]:
             path = dest_path.joinpath(str(doc.path.relative_to(item.path)) + ".opml")
             path.parent.mkdir(parents=True, exist_ok=True)
-            export_document(token, doc.id, False, path)
+            export_document(token, doc.id, root_node, with_format, with_state, path)
         if i + limit < num:
             sleep(60)
 
 
-def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
+def export(
+    token: str,
+    item_id: str,
+    root_node: bool = False,
+    with_format: bool = False,
+    with_state: bool = False,
+    dest_path: Union[str, PathLike] = "",
+):
     """export a single document or by a folder"""
 
     try:
@@ -373,9 +411,9 @@ def export(token: str, item_id: str, dest_path: Union[str, PathLike] = ""):
         raise RuntimeError(f"Invalid item ID: {item_id}")
 
     if item_type == "document":
-        export_document(token, item_id, False, dest_path)
+        export_document(token, item_id, root_node, with_format, with_state, dest_path)
     elif item_type == "folder":
-        export_folder(token, item_id, dest_path)
+        export_folder(token, item_id, root_node, with_format, with_state, dest_path)
     else:
         _error(f"Unknown type: {item.type}: {item.path} [{item.id}]")
 
@@ -541,12 +579,11 @@ def update(token: str):
         _error("Invalid settings file")
         return
 
-    if "dest" in settings:
-        dest_dir = Path(settings["dest"])
-    else:
-        dest_dir = Path.cwd()
+    dest_dir = Path(settings.get("dest", "."))
+    with_format = settings.get("format", False)
+    with_state = settings.get("node_state", False)
 
-    export_folder(token, root_id, dest_dir)
+    export_folder(token, root_id, False, with_format, with_state, dest_dir)
 
     settings["status"] = _fetch_status(token, root_id)
     _save_settings(settings)
@@ -599,6 +636,8 @@ def _parse_args() -> argparse.Namespace:
 
     group = parser.add_argument_group("exporting", "export a single document or by a folder")
     group.add_argument("-e", "--export", metavar="ID")
+    group.add_argument("-F", "--with-format", action="store_true")
+    group.add_argument("-S", "--with-state", action="store_true")
     group.add_argument("-o", "--out", metavar="PATH")
 
     group = parser.add_argument_group("querying", "retrieve a list of items or search for items")
@@ -648,9 +687,9 @@ def main():
 
     if args.export:
         if args.out:
-            export(token, args.export, args.out)
+            export(token, args.export, False, args.with_format, args.with_state, args.out)
         else:
-            export(token, args.export)
+            export(token, args.export, False, args.with_format, args.with_state)
         return
 
     if args.status:
