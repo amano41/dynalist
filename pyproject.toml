@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "dynalist"
+version = "0.1.0"
+description = "Exporting Dynalist documents in OPML format"
+authors = ["Yoichi Amano <amano.yoichi@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "dynalist", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "*"
+black = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
