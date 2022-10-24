@@ -1,6 +1,6 @@
 # Dynalist Export
 
-Python script for exporting Dynalist documents in OPML format.
+Python CLI tool for exporting Dynalist documents in OPML format.
 
 ## Obtaining API secret
 
@@ -12,7 +12,7 @@ Look up the ID of the document or folder you want to export with the `--find` op
 You can search for item names (not paths) using regular expressions.
 
 ```shell
-$ python ./dynalist-export.py --find NAME
+$ dynalist --find NAME
 ```
 
 ## Exporting item
@@ -21,7 +21,7 @@ Use the `--export` option with an item ID to export the item.
 If a folder ID is specified, all documents in that folder will be exported.
 
 ```shell
-$ python ./dynalist-export.py --export ID
+$ dynalist --export ID
 ```
 
 The Dynalist API for downloading document content has a rate limit of 30 times per minute. Therefore, when exporting a folder, this script will sleep for 60 seconds for every 20 documents exported.
@@ -42,13 +42,13 @@ By using `--status` option, you can check for updates of all documents in the pr
 This is done by querying the version number information stored on the Dynalist server.
 
 ```shell
-$ python ./dynalist-export.py --status
+$ dynalist --status
 ```
 
 Run the script with the `--update` option to download the latest version of documents in the project folder to the local directory.
 
 ```shell
-$ python ./dynalist-export.py --update
+$ dynalist --update
 ```
 
 The version number information for each document is stored in the project settings file `.dynalist.json` and used for the next update check with the `--status` option.
