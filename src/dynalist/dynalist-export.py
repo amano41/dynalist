@@ -13,7 +13,7 @@ from re import Pattern
 from time import sleep
 from typing import Final, Optional, TextIO, Union
 
-from dynalist import Dynalist
+from .dynalist import Dynalist
 
 
 @dataclass
