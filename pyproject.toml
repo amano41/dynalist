@@ -14,6 +14,9 @@ python = "^3.10"
 flake8 = "*"
 black = "*"
 
+[tool.poetry.scripts]
+dynalist = "dynalist.cli:main"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
